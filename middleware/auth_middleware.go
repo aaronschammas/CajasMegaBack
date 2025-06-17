@@ -12,20 +12,34 @@ func AuthMiddleware() gin.HandlerFunc { //
 	authService := services.NewAuthService() //
 
 	return func(c *gin.Context) { //
+		tokenString := "" //
+
+		// 1. Intentar obtener el token del header Authorization
 		authHeader := c.GetHeader("Authorization") //
-		if authHeader == "" {                      //
+		if authHeader != "" {                      //
+			tokenString = strings.Replace(authHeader, "Bearer ", "", 1) //
+		} //
+
+		// 2. Si no hay token en el header, buscar en la cookie
+		if tokenString == "" { //
+			cookie, err := c.Cookie("session_token") //
+			if err == nil {                          //
+				tokenString = cookie //
+			} //
+		} //
+
+		if tokenString == "" { //
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token de autorización requerido"}) //
 			c.Abort()                                                                          //
 			return                                                                             //
-		}
+		} //
 
-		tokenString := strings.Replace(authHeader, "Bearer ", "", 1) //
-		claims, err := authService.ValidateToken(tokenString)        //
-		if err != nil {                                              //
+		claims, err := authService.ValidateToken(tokenString) //
+		if err != nil {                                       //
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"}) //
 			c.Abort()                                                         //
 			return                                                            //
-		}
+		} //
 
 		// Guardar claims en el contexto
 		c.Set("user_id", (*claims)["user_id"]) //

@@ -3,7 +3,6 @@ package routes
 import (
 	"caja-fuerte/controllers" //
 	"caja-fuerte/middleware"  //
-	"net/http"                //
 
 	"github.com/gin-gonic/gin" //
 )
@@ -29,31 +28,39 @@ func SetupRoutes() *gin.Engine { //
 	// Controladores
 	authController := controllers.NewAuthController()         //
 	movementController := controllers.NewMovementController() //
+	//Archivo estáticos
+	r.Static("/css", "./Front/css")
+	r.Static("/js", "./Front/js")
+	r.Static("/static", "./static")
+	r.Static("/front", "./Front")
+
+	// Ruta principal (redirige al nuevo front)
+	r.GET("/", func(c *gin.Context) {
+		c.File("./Front/index.html")
+	})
 
 	// Rutas públicas
 	public := r.Group("/api") //
 	{
+		public.GET("/login", func(c *gin.Context) {
+			// Devuelve el HTML del login (útil si quieres servirlo desde backend)
+			c.File("./Front/index.html")
+		})
 		public.POST("/login", authController.Login) //
 	}
 
 	// Rutas protegidas
-	protected := r.Group("/api")               //
+	protected := r.Group("")                   //
 	protected.Use(middleware.AuthMiddleware()) //
 	{
-		protected.POST("/logout", authController.Logout)                      //
-		protected.POST("/movements/batch", movementController.CreateBatch)    //
-		protected.GET("/movements", movementController.GetMovements)          //
-		protected.GET("/movements/last", movementController.GetLastMovements) //
+		protected.GET("/movimientos", movementController.MovementPage)
+		protected.GET("/ingresos", movementController.IngresosPage)
+		protected.POST("/logout", authController.Logout)                          //
+		protected.POST("/ingresos", movementController.CreateBatch)               //
+		protected.GET("/api/movements", movementController.GetMovements)          //
+		protected.GET("/api/movements/last", movementController.GetLastMovements) //
+
 	}
-
-	// Servir archivos estáticos (HTML)
-	r.Static("/static", "./static") //
-	r.LoadHTMLGlob("templates/*")   //
-
-	// Ruta principal
-	r.GET("/", func(c *gin.Context) { //
-		c.HTML(http.StatusOK, "index.html", nil) //
-	})
 
 	return r //
 }

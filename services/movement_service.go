@@ -141,3 +141,41 @@ func (s *MovementService) SoftDeleteMovement(id uint, deletedBy uint) error { //
 
 	return database.DB.Model(&models.Movement{}).Where("movement_id = ?", id).Updates(updates).Error //
 }
+
+func (s *MovementService) GetMovementsWithFilters(filters map[string]interface{}) ([]models.Movement, int64, error) {
+	var movements []models.Movement
+	var total int64
+
+	query := database.DB.Model(&models.Movement{}).
+		Preload("Concept").
+		Preload("Creator").
+		Where("deleted_at IS NULL")
+
+	// Filtros avanzados
+	if t, ok := filters["movement_type"]; ok && t != "" {
+		query = query.Where("movement_type = ?", t)
+	}
+	if dgte, ok := filters["date_gte"]; ok {
+		query = query.Where("movement_date >= ?", dgte)
+	}
+	if dlt, ok := filters["date_lt"]; ok {
+		query = query.Where("movement_date < ?", dlt)
+	}
+	if user, ok := filters["user_id"]; ok && user != "" {
+		query = query.Where("created_by = ?", user)
+	}
+	if shift, ok := filters["shift"]; ok && shift != "" {
+		query = query.Where("shift = ?", shift)
+	}
+	if concept, ok := filters["concept_id"]; ok && concept != "" {
+		query = query.Where("concept_id = ?", concept)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.Order("created_at DESC").Find(&movements).Error; err != nil {
+		return nil, 0, err
+	}
+	return movements, total, nil
+}

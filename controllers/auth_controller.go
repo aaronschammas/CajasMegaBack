@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"caja-fuerte/models"   //
 	"caja-fuerte/services" //
 	"net/http"             //
 
@@ -18,23 +17,33 @@ func NewAuthController() *AuthController { //
 	}
 }
 
-func (c *AuthController) Login(ctx *gin.Context) { //
-	var req models.LoginRequest                      //
-	if err := ctx.ShouldBindJSON(&req); err != nil { //
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()}) //
-		return                                                       //
+func (c *AuthController) Login(ctx *gin.Context) {
+	if ctx.Request.Method == "GET" {
+		// Sirve el HTML del login directamente
+		ctx.File("./Front/index.html")
+		return
 	}
 
-	token, user, err := c.authService.Login(req.Email, req.Password) //
-	if err != nil {                                                  //
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()}) //
-		return                                                         //
+	// POST: Procesa login desde formulario HTML estándar (no JSON)
+	email := ctx.PostForm("email")
+	password := ctx.PostForm("password")
+	if email == "" || password == "" {
+		// Renderiza el login con mensaje de error
+		ctx.Writer.WriteHeader(http.StatusBadRequest)
+		ctx.Writer.Write([]byte(`<html><head><meta http-equiv='refresh' content='2;url=/api/login'></head><body><p style='color:red;text-align:center;'>Email y contraseña requeridos</p></body></html>`))
+		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{ //
-		"token": token, //
-		"user":  user,  //
-	})
+	token, _, err := c.authService.Login(email, password)
+	if err != nil {
+		ctx.Writer.WriteHeader(http.StatusUnauthorized)
+		ctx.Writer.Write([]byte(`<html><head><meta http-equiv='refresh' content='2;url=/api/login'></head><body><p style='color:red;text-align:center;'>Credenciales inválidas</p></body></html>`))
+		return
+	}
+
+	// Crear cookie de sesión JWT
+	ctx.SetCookie("session_token", token, 3600, "/", "", false, true)
+	ctx.Redirect(http.StatusFound, "/movimientos")
 }
 
 func (c *AuthController) Logout(ctx *gin.Context) { //

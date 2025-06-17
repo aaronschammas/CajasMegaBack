@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pantalla de Opciones</title>
+  <link rel="stylesheet" href="/css/stylesmovs.css">
+</head>
+<body>
+  <header>
+    <nav class="menu">
+      <a href="#">OPCIÓN 1</a>
+      <a href="#">OPCIÓN 2</a>
+      <a href="#">OPCIÓN 3</a>
+    </nav>
+  </header>
+
+  <main class="main-container">
+    <div class="button-box">
+      <div class="box ingresos-box">
+        <p class="box-title ingreso-title">Ingresos</p>
+        <a href="/ingresos" class="circle-button ingreso"></a>
+      </div>
+      <div class="box egresos-box">
+        <p class="box-title egreso-title">Egresos</p>
+        <a href="/front/egresos.html" class="circle-button egreso"></a>
+      </div>
+    </div>
+    <div class="info-box">Usuario: <span id="usuarioActual">{{USUARIO_ACTUAL}}</span></div>
+  </main>
+  
+</body>
+</html>

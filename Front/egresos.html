@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Egresos</title>
+  <link rel="stylesheet" href="/css/sylemovegr.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-content">
+      <h1>Gestión de Egresos</h1>
+      <a href="/front/movimiento.html"><button class="btn">Salir</button></a>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <section class="form-section">
+      <div class="form-grid">
+
+        <div class="form-item">
+          <label>Tipo:</label>
+          <p>Egresos</p>
+        </div>
+
+        <div class="form-item">
+          <label>Turno:</label>
+          <select id="turno">
+            <option value="M">Mañana (M)</option>
+            <option value="T">Tarde (T)</option>
+          </select>
+        </div>
+
+        <div class="form-item">
+          <label>Movimiento de:</label>
+          <select id="movimiento">
+            <option value="compra">Compra</option>
+            <option value="servicio">Servicio</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+
+        <div class="form-item">
+          <label>Monto:</label>
+          <input type="number" id="monto" placeholder="Ingrese el monto">
+        </div>
+
+        <div class="form-item">
+          <label>Movimiento realizado por:</label>
+          <select id="realizadoPor">
+            <option value="Admin">Admin</option>
+            <option value="Cajero 1">Cajero 1</option>
+            <option value="Cajero 2">Cajero 2</option>
+          </select>
+        </div>
+
+        <div class="form-item form-full">
+          <label>Detalle:</label>
+          <textarea id="detalle" placeholder="Detalles del egreso"></textarea>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="agregarBtn" class="btn">Agregar a la pila</button>
+      </div>
+
+      <div class="bottom-info">
+        <div class="info-box">Fecha actual: <span id="fechaActual"></span></div>
+        <div class="info-box">Usuario: <span id="usuarioActual">Usuario1</span></div>
+      </div>
+    </section>
+
+    <aside class="pila-section">
+      <h2>Pila de Movimientos</h2>
+
+      <div class="movimiento-box">
+        <h3>Por enviar a la DB</h3>
+        <div id="movimientosPendientes" class="movimientos-container">
+          <!-- Pendientes -->
+        </div>
+        <button class="btn enviar-db">Enviar a la DB</button>
+      </div>
+
+      <div class="movimiento-box">
+        <h3>Movimientos ya agregados</h3>
+        <div id="movimientosAgregados" class="movimientos-container">
+          <!-- Agregados -->
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/js/egresos.js"></script>
+  <script>
+    document.getElementById('fechaActual').textContent = new Date().toLocaleDateString();
+    // Mostrar usuario actual
+    const usuario = localStorage.getItem('user');
+    if (usuario) {
+      const userObj = JSON.parse(usuario);
+      document.getElementById('usuarioActual').textContent = userObj.full_name || userObj.email;
+    }
+  </script>
+
+</body>
+</html>

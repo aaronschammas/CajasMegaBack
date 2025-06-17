@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ingresos</title>
+  <link rel="stylesheet" href="/css/stylemoving.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-content">
+      <h1>Gestión de Ingresos</h1>
+    <a href="/front/movimiento.html"><button class="btn">Salir</button></a>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Formulario de ingreso -->
+    <section class="form-section">
+      <div class="form-grid">
+
+        <div class="form-item">
+          <label>Tipo:</label>
+          <p>Ingresos</p>
+        </div>
+
+        <div class="form-item">
+          <label>Movimiento de:</label>
+          <select id="movement_type" name="movement_type">
+            <option value="Ingreso">Ingreso</option>
+            <option value="Egreso">Egreso</option>
+          </select>
+        </div>
+
+        <div class="form-item">
+          <label>Monto:</label>
+          <input type="number" id="amount" name="amount" placeholder="Ingrese el monto">
+        </div>
+
+        <div class="form-item">
+          <label>Turno:</label>
+          <select id="shift" name="shift">
+            <option value="M">Mañana (M)</option>
+            <option value="T">Tarde (T)</option>
+          </select>
+        </div>
+
+        <div class="form-item">
+          <label>Concepto:</label>
+          <select id="concept_id" name="concept_id">
+            {{CONCEPT_OPTIONS}}
+          </select>
+        </div>
+
+        <div class="form-item">
+          <label>Movimiento realizado por:</label>
+          <span id="created_by_label">{{CREATED_BY_LABEL}}</span>
+          <input type="text" id="" name="created_by" value="{{CREATED_BY}}">
+        </div>
+
+        <div class="form-item form-full">
+          <label>Detalle:</label>
+          <textarea id="details" name="details" placeholder="Detalles del movimiento"></textarea>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="agregarBtn" class="btn">Agregar a la pila</button>
+      </div>
+
+      <div class="bottom-info">
+        <div class="info-box">Fecha actual: <span id="fechaActual"></span></div>
+        <div class="info-box">Usuario: <span id="usuarioActual">{{USUARIO_ACTUAL}}</span></div>
+      </div>
+    </section>
+
+    <!-- Pila de movimientos -->
+    <aside class="pila-section">
+      <h2>Pila de Movimientos</h2>
+
+      <form method="POST" action="/ingresos" id="formEnviarMovimientos">
+        <div class="movimiento-box">
+          <h3>Por enviar a la DB</h3>
+          <div id="movimientosPendientes" class="movimientos-container">
+            <!-- Movimientos pendientes -->
+          </div>
+          <input type="hidden" name="movimientos" id="inputMovimientos">
+          <button class="btn enviar-db" type="submit">Enviar a la DB</button>
+        </div>
+      </form>
+
+      <div class="movimiento-box">
+        <h3>Movimientos en la DB</h3>
+        <div id="movimientosAgregados" class="movimientos-container">
+          {{MOVIMIENTOS_DB}}
+        </div>
+      </div>
+      {{FILTROS_HTML}}
+    </aside>
+  </main>
+
+  <script src="/js/ingresos.js"></script>
+  <script>
+    document.getElementById('fechaActual').textContent = new Date().toLocaleDateString();
+    const usuario = localStorage.getItem('user');
+    if (usuario) {
+      const userObj = JSON.parse(usuario);
+      document.getElementById('usuarioActual').textContent = userObj.full_name || userObj.email;
+    }
+  </script>
+
+</body>
+</html>

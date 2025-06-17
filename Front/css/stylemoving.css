@@ -1,0 +1,206 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+  background: #f4f6f8;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background-color: #3498db;
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+
+.main-container {
+  flex: 1;
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  flex-wrap: wrap;
+}
+
+/* FORMULARIO */
+.form-section {
+  background: #ffffff;
+  flex: 2;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 320px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.form-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-item label {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.form-item input,
+.form-item select,
+.form-item textarea {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.form-full {
+  grid-column: 1 / -1;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* BOTONES */
+.actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  background-color: #2ecc71;
+  color: white;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.btn:hover {
+  background-color: #27ae60;
+}
+
+/* INFO INFERIOR */
+.bottom-info {
+  margin-top: 30px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.info-box {
+  flex: 1;
+  background: #ecf0f1;
+  padding: 15px;
+  text-align: center;
+  border-radius: 8px;
+}
+
+/* PILA DE MOVIMIENTOS */
+.pila-section {
+  background: #ffffff;
+  flex: 1;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  min-width: 300px;
+}
+
+.movimiento-box {
+  margin-top: 20px;
+  background: #fafafa;
+  padding: 15px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+}
+
+.movimiento-box h3 {
+  margin-bottom: 10px;
+}
+
+.movimientos-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.movimiento-list {
+  background: #e3f2fd;
+  padding: 10px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.edit-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.edit-btn:hover {
+  background: #2980b9;
+}
+
+.enviar-db {
+  background-color: #e67e22;
+  margin-top: 10px;
+}
+
+.enviar-db:hover {
+  background-color: #d35400;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.delete-btn {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.delete-btn:hover {
+  background-color: #c0392b;
+}
+
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .main-container {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .form-section, .pila-section {
+    width: 100%;
+  }
+}
