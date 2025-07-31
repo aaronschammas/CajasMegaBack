@@ -11,7 +11,7 @@
   <header class="header">
     <div class="header-content">
       <h1>Gestión de Ingresos</h1>
-    <a href="/front/movimiento.html"><button class="btn">Salir</button></a>
+    <a href=/movimientos><button class="btn">Salir</button></a>
     </div>
   </header>
 
@@ -56,7 +56,7 @@
         <div class="form-item">
           <label>Movimiento realizado por:</label>
           <span id="created_by_label">{{CREATED_BY_LABEL}}</span>
-          <input type="text" id="" name="created_by" value="{{CREATED_BY}}">
+          <input type="text" id="created_by" name="created_by" value="{{CREATED_BY}}">
         </div>
 
         <div class="form-item form-full">
@@ -67,6 +67,10 @@
       <div class="actions">
         <button id="agregarBtn" class="btn">Agregar a la pila</button>
       </div>
+
+      <!-- Notificación de estado de arco -->
+      <div id="arcoEstadoBox" class="info-box arco-estado" style="display:none;"></div>
+      <button id="abrirArcoBtn" class="btn" style="display:none; margin-top:10px;">Abrir Arco</button>
 
       <div class="bottom-info">
         <div class="info-box">Fecha actual: <span id="fechaActual"></span></div>
@@ -92,7 +96,7 @@
       <div class="movimiento-box">
         <h3>Movimientos en la DB</h3>
         <div id="movimientosAgregados" class="movimientos-container">
-          {{MOVIMIENTOS_DB}}
+          {{MOVIMIENTOS_ULTIMO_ARCO}}
         </div>
       </div>
       {{FILTROS_HTML}}
@@ -100,14 +104,15 @@
   </main>
 
   <script src="/js/ingresos.js"></script>
-  <script>
-    document.getElementById('fechaActual').textContent = new Date().toLocaleDateString();
-    const usuario = localStorage.getItem('user');
-    if (usuario) {
-      const userObj = JSON.parse(usuario);
-      document.getElementById('usuarioActual').textContent = userObj.full_name || userObj.email;
-    }
-  </script>
+  <noscript>
+    <div class="info-box error" style="margin: 2em; color: #b71c1c; background: #fff3ff; border: 1px solid #b71c1c; padding: 1em;">
+      ⚠️ Esta página requiere JavaScript para funcionar correctamente. Por favor, habilite JavaScript en su navegador.<br>
+      Si no puede, comuníquese con el administrador para registrar movimientos manualmente.
+    </div>
+  </noscript>
+  <noscript>
+    <div class="info-box error">Esta página requiere JavaScript para funcionar correctamente.</div>
+  </noscript>
 
 </body>
 </html>

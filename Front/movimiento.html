@@ -9,9 +9,9 @@
 <body>
   <header>
     <nav class="menu">
-      <a href="#">OPCIÓN 1</a>
-      <a href="#">OPCIÓN 2</a>
-      <a href="#">OPCIÓN 3</a>
+      <a href="/graficos">OPCIÓN 1</a>
+      <a href="/opcion2">OPCIÓN 2</a>
+      <a href="/opcion3">OPCIÓN 3</a>
     </nav>
   </header>
 
@@ -27,7 +27,22 @@
       </div>
     </div>
     <div class="info-box">Usuario: <span id="usuarioActual">{{USUARIO_ACTUAL}}</span></div>
+    <div class="arco-controls">
+      {{#if ARCO_ID_ABIERTO}}
+        <form method="POST" action="/arco/cerrar" style="display:inline;">
+          <input type="hidden" name="arco_id" value="{{ARCO_ID_ABIERTO}}">
+          <button type="submit" class="btn btn-danger" id="cerrarCajaBtn">Cerrar Caja (ID: {{ARCO_ID_ABIERTO}})</button>
+        </form>
+        <span style="color:#145a32; margin-left:10px; font-weight:bold; background:#d4efdf; padding:4px 10px; border-radius:6px;">Caja abierta (ID: {{ARCO_ID_ABIERTO}})</span>
+      {{else}}
+        <form method="POST" action="/arco/abrir-avanzado" style="display:inline;">
+          <input type="hidden" name="turno" value="M">
+          <button type="submit" class="btn" id="abrirCajaBtn">Abrir Caja (Turno M)</button>
+        </form>
+        <span style="color:#7d6608; margin-left:10px; font-weight:bold; background:#f9e79f; padding:4px 10px; border-radius:6px;">No hay caja abierta</span>
+      {{/if}}
+    </div>
+    {{ARCO_HTML}}
   </main>
-  
 </body>
 </html>

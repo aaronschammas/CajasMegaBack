@@ -107,6 +107,90 @@ enviarBtn.addEventListener('click', async () => {
   }
 });
 
+// --- CONTROL DE ARCO ---
+async function consultarEstadoArco(turno) {
+  const token = localStorage.getItem('token');
+  if (!token) return { abierto: false, msg: 'No autenticado' };
+  try {
+    const res = await fetch(`/arco/estado?turno=${turno}`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (res.ok) {
+      const arco = await res.json();
+      return { abierto: true, arco };
+    } else {
+      const data = await res.json();
+      return { abierto: false, msg: data.error || 'No hay arco abierto' };
+    }
+  } catch (e) {
+    return { abierto: false, msg: 'Error de red' };
+  }
+}
+
+async function abrirArco(turno) {
+  const token = localStorage.getItem('token');
+  if (!token) return { ok: false, msg: 'No autenticado' };
+  try {
+    const res = await fetch('/arco/abrir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ turno })
+    });
+    if (res.ok) {
+      return { ok: true };
+    } else {
+      const data = await res.json();
+      return { ok: false, msg: data.error || 'Error al abrir arco' };
+    }
+  } catch (e) {
+    return { ok: false, msg: 'Error de red' };
+  }
+}
+
+function setArcoUI(abierto, msg) {
+  const estadoBox = document.getElementById('arcoEstadoBox');
+  const abrirBtn = document.getElementById('abrirArcoBtn');
+  const agregarBtn = document.getElementById('agregarBtn');
+  const enviarBtn = document.querySelector('.enviar-db');
+  if (abierto) {
+    estadoBox.style.display = 'none';
+    abrirBtn.style.display = 'none';
+    agregarBtn.disabled = false;
+    if (enviarBtn) enviarBtn.disabled = false;
+  } else {
+    estadoBox.textContent = msg || 'Debe abrir el arco para operar.';
+    estadoBox.style.display = 'block';
+    abrirBtn.style.display = 'inline-block';
+    agregarBtn.disabled = true;
+    if (enviarBtn) enviarBtn.disabled = true;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async function() {
+  const turnoSelect = document.getElementById('turno');
+  let turno = turnoSelect ? turnoSelect.value : 'M';
+  async function checkArco() {
+    const estado = await consultarEstadoArco(turno);
+    setArcoUI(estado.abierto, estado.msg);
+  }
+  await checkArco();
+  if (turnoSelect) {
+    turnoSelect.addEventListener('change', async function() {
+      turno = turnoSelect.value;
+      await checkArco();
+    });
+  }
+  document.getElementById('abrirArcoBtn').addEventListener('click', async function() {
+    const res = await abrirArco(turno);
+    if (res.ok) {
+      await checkArco();
+      alert('Arco abierto correctamente');
+    } else {
+      alert(res.msg);
+    }
+  });
+});
+
 // Datos de ejemplo ya agregados (sin eliminar)
 const datosEjemplo = [
   { fecha: '01/05/2025', monto: 200, movimiento: 'Compra', turno: 'M', realizadoPor: 'Admin' },

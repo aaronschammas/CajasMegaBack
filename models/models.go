@@ -55,6 +55,7 @@ type Movement struct {
 	UpdatedAt    *time.Time     `json:"updated_at"`
 	DeletedBy    *uint          `json:"deleted_by"`
 	DeletedAt    gorm.DeletedAt `json:"deleted_at"`
+	ArcoID       uint           `gorm:"not null" json:"arco_id"`
 
 	// --- CORRECCIÓN AQUÍ ---
 	// Quitamos el tag de 'Concept' para que GORM use la convención con 'ConceptID'
@@ -64,6 +65,7 @@ type Movement struct {
 	Creator User  `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
 	Updater *User `gorm:"foreignKey:UpdatedBy" json:"updater,omitempty"`
 	Deleter *User `gorm:"foreignKey:DeletedBy" json:"deleter,omitempty"`
+	Arco    Arco  `gorm:"foreignKey:ArcoID" json:"arco,omitempty"`
 }
 
 // SpecificIncome para datos específicos de ingresos
@@ -82,6 +84,21 @@ type SpecificExpense struct {
 
 	// Quitamos el tag para usar la convención
 	Movement Movement `json:"movement,omitempty"`
+}
+
+// Arco representa la apertura/cierre de caja (arco)
+type Arco struct {
+	ID            uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	CreatedBy     uint       `gorm:"not null" json:"created_by"`
+	FechaApertura time.Time  `gorm:"not null" json:"fecha_apertura"`
+	HoraApertura  time.Time  `gorm:"not null" json:"hora_apertura"`
+	FechaCierre   *time.Time `json:"fecha_cierre,omitempty"`
+	HoraCierre    *time.Time `json:"hora_cierre,omitempty"`
+	Turno         string     `gorm:"type:enum('M','T');not null" json:"turno"`
+	Activo        bool       `gorm:"default:true" json:"activo"`
+	Fecha         time.Time  `gorm:"not null" json:"fecha"`
+	Usuario       User       `gorm:"foreignKey:CreatedBy" json:"usuario,omitempty"`
+	Movimientos   []Movement `gorm:"foreignKey:ArcoID" json:"movimientos,omitempty"`
 }
 
 // DTOs para requests (sin cambios)

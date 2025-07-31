@@ -28,6 +28,7 @@ func SetupRoutes() *gin.Engine { //
 	// Controladores
 	authController := controllers.NewAuthController()         //
 	movementController := controllers.NewMovementController() //
+	arcoController := controllers.NewArcoController()         //
 	//Archivo estáticos
 	r.Static("/css", "./Front/css")
 	r.Static("/js", "./Front/js")
@@ -43,10 +44,12 @@ func SetupRoutes() *gin.Engine { //
 	public := r.Group("/api") //
 	{
 		public.GET("/login", func(c *gin.Context) {
-			// Devuelve el HTML del login (útil si quieres servirlo desde backend)
+			// Devuelve el HTML del login
 			c.File("./Front/index.html")
 		})
 		public.POST("/login", authController.Login) //
+		// Endpoint público para obtener usuario autenticado (protegido por middleware en la práctica)
+		public.GET("/graficos", controllers.GraficosAPIHandler) // <-- NUEVO ENDPOINT
 	}
 
 	// Rutas protegidas
@@ -55,11 +58,19 @@ func SetupRoutes() *gin.Engine { //
 	{
 		protected.GET("/movimientos", movementController.MovementPage)
 		protected.GET("/ingresos", movementController.IngresosPage)
-		protected.POST("/logout", authController.Logout)                          //
-		protected.POST("/ingresos", movementController.CreateBatch)               //
-		protected.GET("/api/movements", movementController.GetMovements)          //
-		protected.GET("/api/movements/last", movementController.GetLastMovements) //
-
+		protected.GET("/ingresos/filtros", movementController.IngresosPageWithFilters)
+		protected.POST("/logout", authController.Logout)
+		protected.POST("/ingresos", movementController.CreateBatch)
+		protected.POST("/abrir-caja", movementController.AbrirCaja)
+		//RUTAS DE ARCO
+		protected.POST("/arco/abrir", arcoController.AbrirArco)
+		protected.POST("/arco/cerrar", arcoController.CerrarArco)
+		protected.GET("/arco/estado", controllers.ArcoEstadoHandler) // Nuevo endpoint REST adaptado a Gin
+		protected.POST("/arco/abrir-avanzado", arcoController.AbrirArcoAvanzado)
+		protected.GET("/api/me", controllers.MeHandler) // Nuevo endpoint REST
+		protected.GET("/graficos", func(c *gin.Context) {
+			c.File("./Front/graficos.html")
+		})
 	}
 
 	return r //

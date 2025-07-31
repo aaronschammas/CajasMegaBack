@@ -1,6 +1,7 @@
 const agregarBtn = document.getElementById('agregarBtn');
-const movimientosPendientes = document.getElementById('movimientosPendientes');
-const movimientosAgregados = document.getElementById('movimientosAgregados');
+
+// --- PILA DE MOVIMIENTOS Y ENVÍO AL BACKEND ---
+let pilaMovimientos = JSON.parse(localStorage.getItem('pilaMovimientos') || '[]');
 
 function crearMovimiento(fecha, monto, movimiento, turno, realizadoPor) {
   const div = document.createElement('div');
@@ -23,17 +24,27 @@ function crearMovimiento(fecha, monto, movimiento, turno, realizadoPor) {
   return div;
 }
 
-// --- PILA DE MOVIMIENTOS Y ENVÍO AL BACKEND ---
-let pilaMovimientos = [];
-
-function obtenerUsuarioActual() {
-  const user = localStorage.getItem('user');
-  return user ? JSON.parse(user) : null;
+function renderPilaMovimientos() {
+  const movimientosPendientes = document.getElementById('movimientosPendientes');
+  movimientosPendientes.innerHTML = '';
+  pilaMovimientos.forEach(mov => {
+    const fecha = mov.fecha || new Date().toLocaleDateString();
+    const nuevoMovimiento = crearMovimiento(
+      fecha,
+      mov.amount,
+      mov.movement_type,
+      mov.shift,
+      mov.created_by
+    );
+    movimientosPendientes.appendChild(nuevoMovimiento);
+  });
 }
 
+// Al cargar la página, renderiza la pila guardada
+renderPilaMovimientos();
+
 function mapMovimientoForm() {
-  // Asegurarse de que el input hidden existe y tiene el valor correcto
-  const createdByInput = document.getElementsByName('created_by')[0] || document.getElementById('created_by');
+  const createdByInput = document.getElementById('created_by');
   let createdByValue = 0;
   if (createdByInput && createdByInput.value) {
     createdByValue = parseInt(createdByInput.value, 10);
@@ -48,8 +59,32 @@ function mapMovimientoForm() {
   };
 }
 
-// ÚNICO listener profesional para agregar a la pila y renderizar
-agregarBtn.addEventListener('click', () => {
+// Variable global para el estado del arco
+let ultimoEstadoArco = null;
+
+// Función centralizada para obtener el estado del arco desde el backend, usando el turno seleccionado
+async function obtenerEstadoArco() {
+  const shiftSelect = document.getElementById('shift');
+  const turno = shiftSelect ? shiftSelect.value : 'M';
+  try {
+    const res = await fetch(`/arco/estado?turno=${turno}`, { credentials: 'include' });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    ultimoEstadoArco = data;
+    return data;
+  } catch {
+    ultimoEstadoArco = null;
+    return null;
+  }
+}
+
+// --- Listener para agregar a la pila y renderizar
+agregarBtn.addEventListener('click', async () => {
+  const data = await obtenerEstadoArco();
+  if (!data || !data.arco_abierto || !data.arco || !data.arco.id) {
+    alert('Debe abrir el arco para agregar movimientos.');
+    return;
+  }
   const fechaActual = new Date().toLocaleDateString();
   const mov = mapMovimientoForm();
 
@@ -67,98 +102,261 @@ agregarBtn.addEventListener('click', () => {
     alert('Por favor completa todos los campos correctamente');
     return;
   }
-
+  mov.arco_id = data.arco.id;
+  mov.fecha = fechaActual;
   pilaMovimientos.push(mov);
-
-  //la pila visual
-  const nuevoMovimiento = crearMovimiento(
-    fechaActual,
-    mov.amount,
-    mov.movement_type,
-    mov.shift,
-    mov.created_by
-  );
-  movimientosPendientes.appendChild(nuevoMovimiento);
-
-  // Limpiar campos
+  localStorage.setItem('pilaMovimientos', JSON.stringify(pilaMovimientos));
+  renderPilaMovimientos();
   document.getElementById('amount').value = '';
   document.getElementById('details').value = '';
 });
 
-// Enviar a la DB
-const enviarBtn = document.querySelector('.enviar-db');
-enviarBtn.addEventListener('click', async () => {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    alert('No autenticado');
-    return;
-  }
-  if (pilaMovimientos.length === 0) {
-    alert('No hay movimientos para enviar');
-    return;
-  }
-  try {
-    const res = await fetch('/api/movements/batch', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token
-      },
-      body: JSON.stringify({ movements: pilaMovimientos })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      alert('Movimientos enviados correctamente');
-      pilaMovimientos = [];
-      movimientosPendientes.innerHTML = '';
-      // Opcional: recargar movimientos agregados desde la DB
-    } else {
-      alert(data.error || 'Error al enviar movimientos');
-    }
-  } catch (err) {
-    alert('Error de red o servidor');
-  }
-});
-
-const datosEjemplo = [
-  { fecha: '01/05/2025', monto: 500, movimiento: 'Venta', turno: 'M', realizadoPor: 'Admin' },
-  { fecha: '02/05/2025', monto: 300, movimiento: 'Servicio', turno: 'T', realizadoPor: 'Cajero 1' }
-];
-
-datosEjemplo.forEach(data => {
-  const div = document.createElement('div');
-  div.classList.add('movimiento-list');
-  div.innerHTML = `
-    <p><strong>${data.fecha}</strong> - $${data.monto} - ${data.movimiento} - Turno: ${data.turno} - Por: ${data.realizadoPor}</p>
-    <div class="action-buttons">
-      <button class="edit-btn">Editar/Ver</button>
-    </div>
-  `;
-  movimientosAgregados.appendChild(div);
-});
-
-// Al hacer submit el formulario, serializa la pila y la envía por POST
+// --- Enviar a la DB (por submit del form, serializa la pila y valida estado del arco con obtenerEstadoArco) ---
 const formEnviar = document.getElementById('formEnviarMovimientos');
 const inputMovimientos = document.getElementById('inputMovimientos');
 if (formEnviar) {
-  formEnviar.addEventListener('submit', function(e) {
-    // Serializa la pila de movimientos como JSON en el input oculto
+  formEnviar.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const data = await obtenerEstadoArco();
+    actualizarUIEstadoArco();
+    if (!data || !data.arco_abierto || !data.arco || !data.arco.id) {
+      alert('No se puede enviar: el arco está cerrado o no existe.');
+      return;
+    }
     inputMovimientos.value = JSON.stringify(pilaMovimientos);
-    // El submit sigue su curso (no se hace fetch, solo se serializa)
+    formEnviar.submit();
   });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  if (window.CONCEPTS && Array.isArray(window.CONCEPTS)) {
-    const conceptSelect = document.getElementById('concept_id');
-    if (conceptSelect) {
-      conceptSelect.innerHTML = '';
-      window.CONCEPTS.forEach(function(concept) {
-        const option = document.createElement('option');
-        option.value = concept.concept_id;
-        option.textContent = concept.concept_name + ' (' + concept.movement_type_association + ')';
-        conceptSelect.appendChild(option);
-      });
+// --- Botón abrir arco ---
+const abrirBtn = document.getElementById('abrirArcoBtn');
+if (abrirBtn) {
+  abrirBtn.addEventListener('click', async function() {
+    const shiftSelect = document.getElementById('shift');
+    const turno = shiftSelect ? shiftSelect.value : 'M';
+    const res = await fetch('/arco/abrir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ turno })
+    });
+    if (res.ok) {
+      await obtenerEstadoArco();
+      actualizarUIEstadoArco();
+      alert('Arco abierto correctamente');
+    } else {
+      const data = await res.json();
+      alert(data.error || 'Error al abrir arco');
     }
+  });
+}
+
+// --- Sincronización y control de estado del arco ---
+function setArcoLocalStorage(arco, abierto) {
+  if (abierto && arco && arco.id) {
+    localStorage.setItem('arco', JSON.stringify(arco));
+    localStorage.setItem('arcoAbierto', '1');
+  } else {
+    localStorage.removeItem('arco');
+    localStorage.setItem('arcoAbierto', '0');
   }
+}
+function getArcoLocalStorage() {
+  return {
+    arco: JSON.parse(localStorage.getItem('arco') || 'null'),
+    abierto: localStorage.getItem('arcoAbierto') === '1'
+  };
+}
+async function actualizarArcoDesdeBackend() {
+  try {
+    const res = await fetch('/arco/estado', { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.arco && data.arco.id) {
+        setArcoLocalStorage(data.arco, data.arco_abierto);
+      } else {
+        setArcoLocalStorage(null, false);
+      }
+    } else {
+      setArcoLocalStorage(null, false);
+    }
+  } catch (e) {
+    setArcoLocalStorage(null, false);
+  }
+}
+
+// --- Obtención de usuario y estado de arco, y control de botones ---
+async function inicializarUsuarioYArco() {
+  try {
+    const userRes = await fetch('/api/me', { credentials: 'include' });
+    if (!userRes.ok) throw new Error('No autenticado');
+    const userObj = await userRes.json();
+    localStorage.setItem('usuarioActual', JSON.stringify(userObj));
+    const createdByInput = document.getElementById('created_by');
+    if (createdByInput && userObj.user_id) {
+      createdByInput.value = userObj.user_id;
+      createdByInput.readOnly = true;
+    }
+    document.getElementById('usuarioActual').textContent = userObj.full_name || userObj.email;
+    // Estado del arco y botones
+    await actualizarEstadoArcoYBotones();
+  } catch {
+    localStorage.removeItem('usuarioActual');
+    const createdByInput = document.getElementById('created_by');
+    if (createdByInput) {
+      createdByInput.value = '';
+      createdByInput.readOnly = true;
+    }
+    document.getElementById('usuarioActual').textContent = 'No autenticado';
+    const agregarBtn = document.getElementById('agregarBtn');
+    const enviarBtn = document.querySelector('.enviar-db');
+    const abrirBtn = document.getElementById('abrirArcoBtn');
+    const estadoBox = document.getElementById('arcoEstadoBox');
+    estadoBox.textContent = 'No autenticado';
+    estadoBox.style.display = 'block';
+    estadoBox.style.background = '#f9e79f';
+    estadoBox.style.color = '#7d6608';
+    abrirBtn.style.display = 'inline-block';
+    agregarBtn.disabled = true;
+    if (enviarBtn) enviarBtn.disabled = true;
+  }
+  document.getElementById('fechaActual').textContent = new Date().toLocaleDateString();
+}
+
+async function actualizarEstadoArcoYBotones() {
+  try {
+    const res = await fetch('/arco/estado', { credentials: 'include' });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    const abierto = data.arco_abierto && data.arco && data.arco.id;
+    const agregarBtn = document.getElementById('agregarBtn');
+    const enviarBtn = document.querySelector('.enviar-db');
+    const abrirBtn = document.getElementById('abrirArcoBtn');
+    const estadoBox = document.getElementById('arcoEstadoBox');
+    if (abierto) {
+      estadoBox.textContent = `Arco abierto (ID: ${data.arco.id}, Turno: ${data.arco.turno || ''})`;
+      estadoBox.style.display = 'block';
+      estadoBox.style.background = '#d4efdf';
+      estadoBox.style.color = '#145a32';
+      abrirBtn.style.display = 'none';
+      agregarBtn.disabled = false;
+      if (enviarBtn) enviarBtn.disabled = false;
+    } else {
+      estadoBox.textContent = data.error || 'Debe abrir el arco para operar.';
+      estadoBox.style.display = 'block';
+      estadoBox.style.background = '#f9e79f';
+      estadoBox.style.color = '#7d6608';
+      abrirBtn.style.display = 'inline-block';
+      agregarBtn.disabled = true;
+      if (enviarBtn) enviarBtn.disabled = true;
+    }
+  } catch {
+    const agregarBtn = document.getElementById('agregarBtn');
+    const enviarBtn = document.querySelector('.enviar-db');
+    const abrirBtn = document.getElementById('abrirArcoBtn');
+    const estadoBox = document.getElementById('arcoEstadoBox');
+    estadoBox.textContent = 'Error al obtener estado del arco';
+    estadoBox.style.display = 'block';
+    estadoBox.style.background = '#f9e79f';
+    estadoBox.style.color = '#7d6608';
+    abrirBtn.style.display = 'inline-block';
+    agregarBtn.disabled = true;
+    if (enviarBtn) enviarBtn.disabled = true;
+  }
+}
+
+// --- Consultar y abrir arco ---
+async function consultarEstadoArco(turno) {
+  try {
+    const res = await fetch(`/arco/estado?turno=${turno}`, { credentials: 'include' });
+    if (res.status === 401) {
+      window.location.href = '/api/login';
+      return { abierto: false, msg: 'No autenticado' };
+    }
+    if (res.ok) {
+      const arco = await res.json();
+      return { abierto: true, arco };
+    } else {
+      const data = await res.json();
+      return { abierto: false, msg: data.error || 'No hay arco abierto' };
+    }
+  } catch (e) {
+    return { abierto: false, msg: 'Error de red' };
+  }
+}
+async function abrirArco(turno) {
+  try {
+    const res = await fetch('/arco/abrir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ turno })
+    });
+    if (res.ok) {
+      return { ok: true };
+    } else {
+      const data = await res.json();
+      return { ok: false, msg: data.error || 'Error al abrir arco' };
+    }
+  } catch (e) {
+    return { ok: false, msg: 'Error de red' };
+  }
+}
+
+// --- Sincronización de estado de arco al cargar y en cambios de turno ---
+document.addEventListener('DOMContentLoaded', async function() {
+  await actualizarArcoDesdeBackend();
+  const shiftSelect = document.getElementById('shift');
+  let turno = shiftSelect ? shiftSelect.value : 'M';
+  async function checkArco() {
+    const estado = await consultarEstadoArco(turno);
+    setArcoUI(estado.abierto, estado.msg, estado.arco && estado.arco.arco ? estado.arco.arco : estado.arco);
+  }
+  await checkArco();
+  if (shiftSelect) {
+    shiftSelect.addEventListener('change', async function() {
+      turno = shiftSelect.value;
+      await checkArco();
+    });
+  }
+  document.getElementById('abrirArcoBtn').addEventListener('click', async function() {
+    const res = await abrirArco(turno);
+    if (res.ok) {
+      await checkArco();
+      alert('Arco abierto correctamente');
+    } else {
+      alert(res.msg);
+    }
+  });
+});
+
+// --- Actualizar UI de estado de arco y botones usando la variable global ---
+function actualizarUIEstadoArco() {
+  const agregarBtn = document.getElementById('agregarBtn');
+  const enviarBtn = document.querySelector('.enviar-db');
+  const abrirBtn = document.getElementById('abrirArcoBtn');
+  const estadoBox = document.getElementById('arcoEstadoBox');
+  if (ultimoEstadoArco && ultimoEstadoArco.arco_abierto && ultimoEstadoArco.arco && ultimoEstadoArco.arco.id) {
+    estadoBox.textContent = `Arco abierto (ID: ${ultimoEstadoArco.arco.id}, Turno: ${ultimoEstadoArco.arco.turno || ''})`;
+    estadoBox.style.display = 'block';
+    estadoBox.style.background = '#d4efdf';
+    estadoBox.style.color = '#145a32';
+    abrirBtn.style.display = 'none';
+    agregarBtn.disabled = false;
+    if (enviarBtn) enviarBtn.disabled = false;
+  } else {
+    estadoBox.textContent = (ultimoEstadoArco && ultimoEstadoArco.error) || 'Debe abrir el arco para operar.';
+    estadoBox.style.display = 'block';
+    estadoBox.style.background = '#f9e79f';
+    estadoBox.style.color = '#7d6608';
+    abrirBtn.style.display = 'inline-block';
+    agregarBtn.disabled = true;
+    if (enviarBtn) enviarBtn.disabled = true;
+  }
+}
+
+// --- Uso en inicialización y otros lugares ---
+document.addEventListener('DOMContentLoaded', async function() {
+  await obtenerEstadoArco();
+  actualizarUIEstadoArco();
 });

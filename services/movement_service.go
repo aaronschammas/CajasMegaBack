@@ -3,6 +3,7 @@ package services
 import (
 	"caja-fuerte/database" //
 	"caja-fuerte/models"   //
+	"errors"               //
 	"fmt"                  //
 	"time"                 //
 
@@ -18,6 +19,11 @@ func NewMovementService() *MovementService { //
 func (s *MovementService) CreateBatchMovements(movements []models.MovementRequest) error { //
 	return database.DB.Transaction(func(tx *gorm.DB) error { //
 		for _, movReq := range movements { //
+			// --- Validar que hay un arco abierto para el usuario y turno ---
+			arco, err := getArcoForMovement(tx, movReq.CreatedBy, movReq.Shift)
+			if err != nil {
+				return err // No hay arco abierto o error
+			}
 			// Generar reference_id
 			referenceID, err := s.generateReferenceID(tx, movReq.CreatedBy) // Pasamos tx para el contador
 			if err != nil {                                                 //
@@ -33,6 +39,7 @@ func (s *MovementService) CreateBatchMovements(movements []models.MovementReques
 				ConceptID:    movReq.ConceptID,    //
 				Details:      movReq.Details,      //
 				CreatedBy:    movReq.CreatedBy,    //
+				ArcoID:       arco.ID,             // Asociar movimiento al arco abierto
 			}
 
 			if err := tx.Create(&movement).Error; err != nil { //
@@ -100,6 +107,9 @@ func (s *MovementService) GetMovements(filters map[string]interface{}, limit, of
 	}
 	if conceptID, ok := filters["concept_id"]; ok { //
 		query = query.Where("concept_id = ?", conceptID) //
+	}
+	if arcoID, ok := filters["arco_id"]; ok && arcoID != 0 {
+		query = query.Where("arco_id = ?", arcoID)
 	}
 
 	// Contar total
@@ -178,4 +188,16 @@ func (s *MovementService) GetMovementsWithFilters(filters map[string]interface{}
 		return nil, 0, err
 	}
 	return movements, total, nil
+}
+
+// --- Helper para validar arco abierto ---
+func getArcoForMovement(tx *gorm.DB, userID uint, turno string) (*models.Arco, error) {
+	var arco models.Arco
+	err := tx.Where("created_by = ? AND turno = ? AND activo = ?", userID, turno, true).
+		Order("id DESC").
+		First(&arco).Error
+	if err != nil {
+		return nil, errors.New("No hay un arco abierto para este turno. Debe abrir el arco antes de crear movimientos.")
+	}
+	return &arco, nil
 }

@@ -130,12 +130,46 @@ func (c *MovementController) GetLastMovements(ctx *gin.Context) { //
 
 func (c *MovementController) MovementPage(ctx *gin.Context) {
 	userEmail := ctx.GetString("email")
+	// --- NUEVO: mostrar solo movimientos del último arco abierto ---
+	arcoService := services.NewArcoService()
+	arcoAbierto, err := arcoService.UltimoArcoAbiertoOCerrado()
+	var arcoID uint
+	if err == nil && arcoAbierto {
+		ultimo, errUlt := arcoService.GetLastArco()
+		if errUlt == nil && ultimo.Activo {
+			arcoID = ultimo.ID
+		}
+	}
+	movements := []models.Movement{}
+	if arcoID != 0 {
+		movements, _, err = c.movementService.GetMovementsWithFilters(map[string]interface{}{"arco_id": arcoID})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, "Error al obtener movimientos del último arco abierto")
+			return
+		}
+	}
+	// Renderizar movimientos en HTML (solo los del último arco abierto)
+	movsHTML := ""
+	for _, m := range movements {
+		movsHTML += fmt.Sprintf(
+			`<div class='movimiento-list'><span><b>%d</b> - %s - $%.2f - %s - %s - %s</span></div>`,
+			m.MovementID,
+			m.MovementDate.Format("2006-01-02"),
+			m.Amount,
+			m.Creator.FullName,
+			m.Shift,
+			m.MovementType,
+		)
+	}
 	content, err := os.ReadFile("./Front/movimiento.html")
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "Error al cargar la página")
 		return
 	}
 	html := strings.ReplaceAll(string(content), "{{USUARIO_ACTUAL}}", userEmail)
+	html = strings.Replace(html, "{{MOVIMIENTOS_HTML}}", movsHTML, 1)
+	// Inyectar el ID del arco abierto (o vacío si no hay)
+	html = strings.ReplaceAll(html, "{{ARCO_ID_ABIERTO}}", fmt.Sprintf("%d", arcoID))
 	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 
@@ -172,10 +206,24 @@ func (c *MovementController) IngresosPage(ctx *gin.Context) {
 	now := time.Now()
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	endOfMonth := startOfMonth.AddDate(0, 1, 0)
+	// --- NUEVO: obtener arco abierto para el usuario y turno ---
+	arcoService := services.NewArcoService()
+	arcoAbierto, err := arcoService.UltimoArcoAbiertoOCerrado()
+	var arcoID uint
+	if err == nil && arcoAbierto {
+		ultimo, errUlt := arcoService.GetLastArco()
+		if errUlt == nil && ultimo.Activo {
+			arcoID = ultimo.ID
+		}
+	}
+	_ = arcoID // evitar error de variable no usada
 	filters := map[string]interface{}{
 		"movement_type": "Ingreso",
 		"date_gte":      startOfMonth,
 		"date_lt":       endOfMonth,
+	}
+	if arcoID != 0 {
+		filters["arco_id"] = arcoID
 	}
 	movements, _, err := c.movementService.GetMovementsWithFilters(filters)
 	if err != nil {
@@ -234,4 +282,239 @@ func (c *MovementController) IngresosPage(ctx *gin.Context) {
 	</script>`
 	html = strings.Replace(html, "{{FILTROS_HTML}}", filtrosHTML, 1)
 	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// GET /ingresos/filtros (HTML con filtros avanzados)
+func (c *MovementController) IngresosPageWithFilters(ctx *gin.Context) {
+	userEmail := ctx.GetString("email")
+	var userID uint64
+	if v, exists := ctx.Get("user_id"); exists {
+		switch val := v.(type) {
+		case float64:
+			userID = uint64(val)
+		case int:
+			userID = uint64(val)
+		case int64:
+			userID = uint64(val)
+		case uint:
+			userID = uint64(val)
+		case uint64:
+			userID = val
+		case string:
+			parsed, err := strconv.ParseUint(val, 10, 64)
+			if err == nil {
+				userID = parsed
+			}
+		}
+	}
+	createdByLabel := userEmail
+	concepts, err := conceptService.GetActiveConcepts()
+	if err != nil {
+		ctx.String(http.StatusInternalServerError, "Error al obtener conceptos")
+		return
+	}
+	// Procesar filtros desde query params
+	filters := map[string]interface{}{
+		"movement_type": "Ingreso",
+	}
+	if desde := ctx.Query("fecha_desde"); desde != "" {
+		filters["date_gte"] = desde
+	}
+	if hasta := ctx.Query("fecha_hasta"); hasta != "" {
+		filters["date_lt"] = hasta
+	}
+	if usuario := ctx.Query("usuario"); usuario != "" {
+		filters["user_id"] = usuario
+	}
+	if turno := ctx.Query("turno"); turno != "" {
+		filters["shift"] = turno
+	}
+	if concepto := ctx.Query("concepto"); concepto != "" {
+		filters["concept_id"] = concepto
+	}
+	if tipo := ctx.Query("tipo"); tipo != "" {
+		filters["movement_type"] = tipo
+	}
+	movements, _, err := c.movementService.GetMovementsWithFilters(filters)
+	if err != nil {
+		ctx.String(http.StatusInternalServerError, "Error al obtener movimientos")
+		return
+	}
+	// Renderizar movimientos en HTML
+	movsHTML := ""
+	for _, m := range movements {
+		movsHTML += fmt.Sprintf(
+			`<div class='movimiento-list'><span><b>%d</b> - %s - $%.2f - %s - %s - %s</span></div>`,
+			m.MovementID,
+			m.MovementDate.Format("2006-01-02"),
+			m.Amount,
+			m.Creator.FullName,
+			m.Shift,
+			m.MovementType,
+		)
+	}
+	content, err := os.ReadFile("./Front/ingresos.html")
+	if err != nil {
+		ctx.String(http.StatusInternalServerError, "Error al cargar la página")
+		return
+	}
+	options := ""
+	for _, concept := range concepts {
+		if concept.MovementTypeAssociation == "Ingreso" || concept.MovementTypeAssociation == "Ambos" {
+			options += fmt.Sprintf("<option value=\"%d\">%s (%s)</option>", concept.ConceptID, concept.ConceptName, concept.MovementTypeAssociation)
+		}
+	}
+	html := strings.ReplaceAll(string(content), "{{USUARIO_ACTUAL}}", userEmail)
+	html = strings.ReplaceAll(html, "{{CONCEPT_OPTIONS}}", options)
+	html = strings.ReplaceAll(html, "{{CREATED_BY}}", fmt.Sprintf("%d", userID))
+	html = strings.ReplaceAll(html, "{{CREATED_BY_LABEL}}", createdByLabel)
+	html = strings.ReplaceAll(html, "{{MOVIMIENTOS_DB}}", movsHTML)
+	// Agregar formulario de filtros (botón y modal)
+	filtrosHTML := `<button id='btnFiltros' class='btn'>Filtros</button>
+	<div id='modalFiltros' style='display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:1000;'>
+	  <div style='background:#fff;padding:20px;margin:100px auto;width:400px;position:relative;'>
+	    <h3>Filtros avanzados</h3>
+	    <form method='GET' action='/ingresos'>
+	      <label>Fecha desde: <input type='date' name='fecha_desde'></label><br>
+	      <label>Fecha hasta: <input type='date' name='fecha_hasta'></label><br>
+	      <label>Usuario: <input type='text' name='usuario'></label><br>
+	      <label>Turno: <select name='turno'><option value=''>Todos</option><option value='M'>Mañana</option><option value='T'>Tarde</option></select></label><br>
+	      <label>Concepto: <input type='text' name='concepto'></label><br>
+	      <label>Tipo: <select name='tipo'><option value=''>Todos</option><option value='Ingreso'>Ingreso</option><option value='Egreso'>Egreso</option></select></label><br>
+	      <button type='submit' class='btn'>Aplicar</button>
+	      <button type='button' id='cerrarModal' class='btn'>Cerrar</button>
+	    </form>
+	  </div>
+	</div>
+	<script>
+	  document.getElementById('btnFiltros').onclick = function(){document.getElementById('modalFiltros').style.display='block';}
+	  document.getElementById('cerrarModal').onclick = function(){document.getElementById('modalFiltros').style.display='none';}
+	</script>`
+	html = strings.Replace(html, "{{FILTROS_HTML}}", filtrosHTML, 1)
+	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// GET /egresos (HTML)
+func (c *MovementController) EgresosPage(ctx *gin.Context) {
+	userEmail := ctx.GetString("email")
+	var userID uint64
+	if v, exists := ctx.Get("user_id"); exists {
+		switch val := v.(type) {
+		case float64:
+			userID = uint64(val)
+		case int:
+			userID = uint64(val)
+		case int64:
+			userID = uint64(val)
+		case uint:
+			userID = uint64(val)
+		case uint64:
+			userID = val
+		case string:
+			parsed, err := strconv.ParseUint(val, 10, 64)
+			if err == nil {
+				userID = parsed
+			}
+		}
+	}
+	createdByLabel := userEmail
+	concepts, err := conceptService.GetActiveConcepts()
+	if err != nil {
+		ctx.String(http.StatusInternalServerError, "Error al obtener conceptos")
+		return
+	}
+	// Filtros por defecto: mes actual y tipo 'Egreso'
+	now := time.Now()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	endOfMonth := startOfMonth.AddDate(0, 1, 0)
+	// --- NUEVO: obtener arco abierto para el usuario y turno ---
+	arcoService := services.NewArcoService()
+	arcoAbierto, err := arcoService.UltimoArcoAbiertoOCerrado()
+	var arcoID uint
+	if err == nil && arcoAbierto {
+		ultimo, errUlt := arcoService.GetLastArco()
+		if errUlt == nil && ultimo.Activo {
+			arcoID = ultimo.ID
+		}
+	}
+	_ = arcoID // evitar error de variable no usada
+	filters := map[string]interface{}{
+		"movement_type": "Egreso",
+		"date_gte":      startOfMonth,
+		"date_lt":       endOfMonth,
+	}
+	if arcoID != 0 {
+		filters["arco_id"] = arcoID
+	}
+	movements, _, err := c.movementService.GetMovementsWithFilters(filters)
+	if err != nil {
+		ctx.String(http.StatusInternalServerError, "Error al obtener movimientos")
+		return
+	}
+	// Renderizar movimientos en HTML
+	movsHTML := ""
+	for _, m := range movements {
+		movsHTML += fmt.Sprintf(
+			`<div class='movimiento-list'><span><b>%d</b> - %s - $%.2f - %s - %s - %s</span></div>`,
+			m.MovementID,
+			m.MovementDate.Format("2006-01-02"),
+			m.Amount,
+			m.Creator.FullName,
+			m.Shift,
+			m.MovementType,
+		)
+	}
+	content, err := os.ReadFile("./Front/egresos.html")
+	if err != nil {
+		ctx.String(http.StatusInternalServerError, "Error al cargar la página")
+		return
+	}
+	options := ""
+	for _, concept := range concepts {
+		if concept.MovementTypeAssociation == "Egreso" || concept.MovementTypeAssociation == "Ambos" {
+			options += fmt.Sprintf("<option value=\"%d\">%s (%s)</option>", concept.ConceptID, concept.ConceptName, concept.MovementTypeAssociation)
+		}
+	}
+	html := strings.ReplaceAll(string(content), "{{USUARIO_ACTUAL}}", userEmail)
+	html = strings.ReplaceAll(html, "{{CONCEPT_OPTIONS}}", options)
+	html = strings.ReplaceAll(html, "{{CREATED_BY}}", fmt.Sprintf("%d", userID))
+	html = strings.ReplaceAll(html, "{{CREATED_BY_LABEL}}", createdByLabel)
+	html = strings.ReplaceAll(html, "{{MOVIMIENTOS_DB}}", movsHTML)
+	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// POST /abrir-caja (desde movimientos.html)
+func (c *MovementController) AbrirCaja(ctx *gin.Context) {
+	var userID uint
+	if v, exists := ctx.Get("user_id"); exists {
+		switch val := v.(type) {
+		case float64:
+			userID = uint(val)
+		case int:
+			userID = uint(val)
+		case int64:
+			userID = uint(val)
+		case uint:
+			userID = val
+		case uint64:
+			userID = uint(val)
+		case string:
+			parsed, err := strconv.ParseUint(val, 10, 64)
+			if err == nil {
+				userID = uint(parsed)
+			}
+		}
+	}
+	turno := ctx.PostForm("turno")
+	if turno != "M" && turno != "T" {
+		ctx.String(http.StatusBadRequest, "Turno inválido")
+		return
+	}
+	arcoService := services.NewArcoService()
+	_, err := arcoService.AbrirArco(userID, turno)
+	if err != nil {
+		ctx.String(http.StatusBadRequest, "Error al abrir caja: %s", err.Error())
+		return
+	}
+	ctx.Redirect(http.StatusSeeOther, "/movimientos")
 }

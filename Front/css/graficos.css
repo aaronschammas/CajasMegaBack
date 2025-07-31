@@ -1,0 +1,28 @@
+/* CSS para mostrar el formulario en línea horizontal */
+
+form {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* Espacio entre elementos */
+    padding: 20px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    font-family: Arial, sans-serif;
+}
+
+label {
+    font-weight: bold;
+}
+
+input, select, button {
+    padding: 8px;
+    font-size: 1rem;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+table { border-collapse: collapse; width: 100%; margin-top: 2em; }
+
+th, td { border: 1px solid #aaa; padding: 8px; text-align: left; }
+
+th { background: #eaf2f8; }

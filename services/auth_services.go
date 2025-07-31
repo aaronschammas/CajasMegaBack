@@ -59,3 +59,8 @@ func (s *AuthService) ValidateToken(tokenString string) (*jwt.MapClaims, error) 
 
 	return nil, errors.New("token inválido") //
 }
+
+// GetUserByID busca un usuario por su ID
+func (s *AuthService) GetUserByID(userID uint, user *models.User) error {
+	return database.DB.First(user, userID).Error
+}

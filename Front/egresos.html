@@ -65,6 +65,10 @@
         <button id="agregarBtn" class="btn">Agregar a la pila</button>
       </div>
 
+      <!-- Notificación de estado de arco -->
+      <div id="arcoEstadoBox" class="info-box arco-estado" style="display:none;"></div>
+      <button id="abrirArcoBtn" class="btn" style="display:none; margin-top:10px;">Abrir Arco</button>
+
       <div class="bottom-info">
         <div class="info-box">Fecha actual: <span id="fechaActual"></span></div>
         <div class="info-box">Usuario: <span id="usuarioActual">Usuario1</span></div>
@@ -85,7 +89,7 @@
       <div class="movimiento-box">
         <h3>Movimientos ya agregados</h3>
         <div id="movimientosAgregados" class="movimientos-container">
-          <!-- Agregados -->
+          {{MOVIMIENTOS_ULTIMO_ARCO}}
         </div>
       </div>
     </aside>
