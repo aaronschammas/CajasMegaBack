@@ -1,7 +1,7 @@
 const agregarBtn = document.getElementById('agregarBtn');
 
 // --- PILA DE MOVIMIENTOS Y ENVÍO AL BACKEND ---
-let pilaMovimientos = JSON.parse(localStorage.getItem('pilaMovimientos') || '[]');
+let pilaMovimientos = [];
 
 function crearMovimiento(fecha, monto, movimiento, turno, realizadoPor) {
   const div = document.createElement('div');
@@ -105,7 +105,6 @@ agregarBtn.addEventListener('click', async () => {
   mov.arco_id = data.arco.id;
   mov.fecha = fechaActual;
   pilaMovimientos.push(mov);
-  localStorage.setItem('pilaMovimientos', JSON.stringify(pilaMovimientos));
   renderPilaMovimientos();
   document.getElementById('amount').value = '';
   document.getElementById('details').value = '';
@@ -152,38 +151,7 @@ if (abrirBtn) {
 }
 
 // --- Sincronización y control de estado del arco ---
-function setArcoLocalStorage(arco, abierto) {
-  if (abierto && arco && arco.id) {
-    localStorage.setItem('arco', JSON.stringify(arco));
-    localStorage.setItem('arcoAbierto', '1');
-  } else {
-    localStorage.removeItem('arco');
-    localStorage.setItem('arcoAbierto', '0');
-  }
-}
-function getArcoLocalStorage() {
-  return {
-    arco: JSON.parse(localStorage.getItem('arco') || 'null'),
-    abierto: localStorage.getItem('arcoAbierto') === '1'
-  };
-}
-async function actualizarArcoDesdeBackend() {
-  try {
-    const res = await fetch('/arco/estado', { credentials: 'include' });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.arco && data.arco.id) {
-        setArcoLocalStorage(data.arco, data.arco_abierto);
-      } else {
-        setArcoLocalStorage(null, false);
-      }
-    } else {
-      setArcoLocalStorage(null, false);
-    }
-  } catch (e) {
-    setArcoLocalStorage(null, false);
-  }
-}
+// Eliminado el uso de localStorage para arco
 
 // --- Obtención de usuario y estado de arco, y control de botones ---
 async function inicializarUsuarioYArco() {
@@ -191,7 +159,7 @@ async function inicializarUsuarioYArco() {
     const userRes = await fetch('/api/me', { credentials: 'include' });
     if (!userRes.ok) throw new Error('No autenticado');
     const userObj = await userRes.json();
-    localStorage.setItem('usuarioActual', JSON.stringify(userObj));
+    // Eliminado el guardado de usuarioActual en localStorage
     const createdByInput = document.getElementById('created_by');
     if (createdByInput && userObj.user_id) {
       createdByInput.value = userObj.user_id;
@@ -201,7 +169,7 @@ async function inicializarUsuarioYArco() {
     // Estado del arco y botones
     await actualizarEstadoArcoYBotones();
   } catch {
-    localStorage.removeItem('usuarioActual');
+    // Eliminado el borrado de usuarioActual en localStorage
     const createdByInput = document.getElementById('created_by');
     if (createdByInput) {
       createdByInput.value = '';

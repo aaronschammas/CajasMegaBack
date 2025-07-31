@@ -58,6 +58,7 @@ func SetupRoutes() *gin.Engine { //
 	{
 		protected.GET("/movimientos", movementController.MovementPage)
 		protected.GET("/ingresos", movementController.IngresosPage)
+		protected.GET("/egresos", movementController.EgresosPage)
 		protected.GET("/ingresos/filtros", movementController.IngresosPageWithFilters)
 		protected.POST("/logout", authController.Logout)
 		protected.POST("/ingresos", movementController.CreateBatch)
@@ -68,6 +69,8 @@ func SetupRoutes() *gin.Engine { //
 		protected.GET("/arco/estado", controllers.ArcoEstadoHandler) // Nuevo endpoint REST adaptado a Gin
 		protected.POST("/arco/abrir-avanzado", arcoController.AbrirArcoAvanzado)
 		protected.GET("/api/me", controllers.MeHandler) // Nuevo endpoint REST
+		protected.GET("/api/saldo-ultimo-arco", controllers.SaldoUltimoArcoHandler)
+		protected.GET("/api/arco-estado", controllers.EstadoArcoAPIHandler)
 		protected.GET("/graficos", func(c *gin.Context) {
 			c.File("./Front/graficos.html")
 		})

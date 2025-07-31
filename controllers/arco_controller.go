@@ -9,6 +9,33 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// GET /api/arco-estado
+func EstadoArcoAPIHandler(ctx *gin.Context) {
+	arcoService := services.NewArcoService()
+	abierto, err := arcoService.UltimoArcoAbiertoOCerrado()
+	if err != nil {
+		ctx.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	ultimo, err := arcoService.GetLastArco()
+	if err != nil {
+		ctx.JSON(200, gin.H{"arco_abierto": abierto, "arco": nil})
+		return
+	}
+	ctx.JSON(200, gin.H{"arco_abierto": abierto, "arco": ultimo})
+}
+
+// GET /api/saldo-ultimo-arco
+func SaldoUltimoArcoHandler(ctx *gin.Context) {
+	arcoService := services.NewArcoService()
+	saldo, err := arcoService.GetSaldoUltimoArco()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo obtener el saldo actual"})
+		return
+	}
+	ctx.JSON(http.StatusOK, saldo)
+}
+
 type ArcoController struct {
 	arcoService *services.ArcoService
 }
@@ -84,7 +111,7 @@ func (c *ArcoController) AbrirArcoAvanzado(ctx *gin.Context) {
 	arcoService := c.arcoService
 	// Consultar el último arco global (por ID)
 	ultimo, err := c.arcoService.GetLastArco()
-	if err != nil || ultimo == nil || (ultimo.FechaCierre != nil && ultimo.Activo == false) {
+	if err != nil || ultimo == nil || (ultimo.FechaCierre != nil && !ultimo.Activo) {
 		// No hay arco abierto, abrir uno nuevo
 		arco, err := arcoService.AbrirArco(userID, turno)
 		if err != nil {

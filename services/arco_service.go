@@ -9,6 +9,28 @@ import (
 	"gorm.io/gorm"
 )
 
+// Estructura para mapear la vista de saldo de arqueos
+type VistaSaldoArqueo struct {
+	ArqueoID      uint       `gorm:"column:arqueo_id"`
+	FechaApertura *time.Time `gorm:"column:fecha_apertura"`
+	FechaCierre   *time.Time `gorm:"column:fecha_cierre"`
+	Turno         string     `gorm:"column:turno"`
+	Activo        bool       `gorm:"column:activo"`
+	TotalIngresos float64    `gorm:"column:total_ingresos"`
+	TotalEgresos  float64    `gorm:"column:total_egresos"`
+	SaldoTotal    float64    `gorm:"column:saldo_total"`
+}
+
+// Devuelve el saldo del último arco (abierto o cerrado)
+func (s *ArcoService) GetSaldoUltimoArco() (*VistaSaldoArqueo, error) {
+	var saldo VistaSaldoArqueo
+	err := database.DB.Raw(`SELECT * FROM vista_saldo_arqueos ORDER BY arqueo_id DESC LIMIT 1`).Scan(&saldo).Error
+	if err != nil {
+		return nil, err
+	}
+	return &saldo, nil
+}
+
 type ArcoService struct{}
 
 func NewArcoService() *ArcoService {

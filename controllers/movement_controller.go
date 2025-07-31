@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin" //
+	"github.com/gin-gonic/gin"
 )
 
 type MovementController struct { //
@@ -130,46 +130,12 @@ func (c *MovementController) GetLastMovements(ctx *gin.Context) { //
 
 func (c *MovementController) MovementPage(ctx *gin.Context) {
 	userEmail := ctx.GetString("email")
-	// --- NUEVO: mostrar solo movimientos del último arco abierto ---
-	arcoService := services.NewArcoService()
-	arcoAbierto, err := arcoService.UltimoArcoAbiertoOCerrado()
-	var arcoID uint
-	if err == nil && arcoAbierto {
-		ultimo, errUlt := arcoService.GetLastArco()
-		if errUlt == nil && ultimo.Activo {
-			arcoID = ultimo.ID
-		}
-	}
-	movements := []models.Movement{}
-	if arcoID != 0 {
-		movements, _, err = c.movementService.GetMovementsWithFilters(map[string]interface{}{"arco_id": arcoID})
-		if err != nil {
-			ctx.String(http.StatusInternalServerError, "Error al obtener movimientos del último arco abierto")
-			return
-		}
-	}
-	// Renderizar movimientos en HTML (solo los del último arco abierto)
-	movsHTML := ""
-	for _, m := range movements {
-		movsHTML += fmt.Sprintf(
-			`<div class='movimiento-list'><span><b>%d</b> - %s - $%.2f - %s - %s - %s</span></div>`,
-			m.MovementID,
-			m.MovementDate.Format("2006-01-02"),
-			m.Amount,
-			m.Creator.FullName,
-			m.Shift,
-			m.MovementType,
-		)
-	}
 	content, err := os.ReadFile("./Front/movimiento.html")
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "Error al cargar la página")
 		return
 	}
 	html := strings.ReplaceAll(string(content), "{{USUARIO_ACTUAL}}", userEmail)
-	html = strings.Replace(html, "{{MOVIMIENTOS_HTML}}", movsHTML, 1)
-	// Inyectar el ID del arco abierto (o vacío si no hay)
-	html = strings.ReplaceAll(html, "{{ARCO_ID_ABIERTO}}", fmt.Sprintf("%d", arcoID))
 	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 
@@ -263,17 +229,17 @@ func (c *MovementController) IngresosPage(ctx *gin.Context) {
 	filtrosHTML := `<button id='btnFiltros' class='btn'>Filtros</button>
 	<div id='modalFiltros' style='display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:1000;'>
 	  <div style='background:#fff;padding:20px;margin:100px auto;width:400px;position:relative;'>
-	    <h3>Filtros avanzados</h3>
-	    <form method='GET' action='/ingresos'>
-	      <label>Fecha desde: <input type='date' name='fecha_desde'></label><br>
-	      <label>Fecha hasta: <input type='date' name='fecha_hasta'></label><br>
-	      <label>Usuario: <input type='text' name='usuario'></label><br>
-	      <label>Turno: <select name='turno'><option value=''>Todos</option><option value='M'>Mañana</option><option value='T'>Tarde</option></select></label><br>
-	      <label>Concepto: <input type='text' name='concepto'></label><br>
-	      <label>Tipo: <select name='tipo'><option value=''>Todos</option><option value='Ingreso'>Ingreso</option><option value='Egreso'>Egreso</option></select></label><br>
-	      <button type='submit' class='btn'>Aplicar</button>
-	      <button type='button' id='cerrarModal' class='btn'>Cerrar</button>
-	    </form>
+		<h3>Filtros avanzados</h3>
+		<form method='GET' action='/ingresos'>
+		  <label>Fecha desde: <input type='date' name='fecha_desde'></label><br>
+		  <label>Fecha hasta: <input type='date' name='fecha_hasta'></label><br>
+		  <label>Usuario: <input type='text' name='usuario'></label><br>
+		  <label>Turno: <select name='turno'><option value=''>Todos</option><option value='M'>Mañana</option><option value='T'>Tarde</option></select></label><br>
+		  <label>Concepto: <input type='text' name='concepto'></label><br>
+		  <label>Tipo: <select name='tipo'><option value=''>Todos</option><option value='Ingreso'>Ingreso</option><option value='Egreso'>Egreso</option></select></label><br>
+		  <button type='submit' class='btn'>Aplicar</button>
+		  <button type='button' id='cerrarModal' class='btn'>Cerrar</button>
+		</form>
 	  </div>
 	</div>
 	<script>
@@ -373,17 +339,17 @@ func (c *MovementController) IngresosPageWithFilters(ctx *gin.Context) {
 	filtrosHTML := `<button id='btnFiltros' class='btn'>Filtros</button>
 	<div id='modalFiltros' style='display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:1000;'>
 	  <div style='background:#fff;padding:20px;margin:100px auto;width:400px;position:relative;'>
-	    <h3>Filtros avanzados</h3>
-	    <form method='GET' action='/ingresos'>
-	      <label>Fecha desde: <input type='date' name='fecha_desde'></label><br>
-	      <label>Fecha hasta: <input type='date' name='fecha_hasta'></label><br>
-	      <label>Usuario: <input type='text' name='usuario'></label><br>
-	      <label>Turno: <select name='turno'><option value=''>Todos</option><option value='M'>Mañana</option><option value='T'>Tarde</option></select></label><br>
-	      <label>Concepto: <input type='text' name='concepto'></label><br>
-	      <label>Tipo: <select name='tipo'><option value=''>Todos</option><option value='Ingreso'>Ingreso</option><option value='Egreso'>Egreso</option></select></label><br>
-	      <button type='submit' class='btn'>Aplicar</button>
-	      <button type='button' id='cerrarModal' class='btn'>Cerrar</button>
-	    </form>
+		<h3>Filtros avanzados</h3>
+		<form method='GET' action='/ingresos'>
+		  <label>Fecha desde: <input type='date' name='fecha_desde'></label><br>
+		  <label>Fecha hasta: <input type='date' name='fecha_hasta'></label><br>
+		  <label>Usuario: <input type='text' name='usuario'></label><br>
+		  <label>Turno: <select name='turno'><option value=''>Todos</option><option value='M'>Mañana</option><option value='T'>Tarde</option></select></label><br>
+		  <label>Concepto: <input type='text' name='concepto'></label><br>
+		  <label>Tipo: <select name='tipo'><option value=''>Todos</option><option value='Ingreso'>Ingreso</option><option value='Egreso'>Egreso</option></select></label><br>
+		  <button type='submit' class='btn'>Aplicar</button>
+		  <button type='button' id='cerrarModal' class='btn'>Cerrar</button>
+		</form>
 	  </div>
 	</div>
 	<script>

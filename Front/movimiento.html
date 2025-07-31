@@ -2,47 +2,129 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pantalla de Opciones</title>
-  <link rel="stylesheet" href="/css/stylesmovs.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MegaAdmin - Dashboard de Arqueo</title>
+  <link rel="stylesheet" href="css/stylemov.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-  <header>
-    <nav class="menu">
-      <a href="/graficos">OPCIÓN 1</a>
-      <a href="/opcion2">OPCIÓN 2</a>
-      <a href="/opcion3">OPCIÓN 3</a>
-    </nav>
+  <header class="app-header">
+    <div class="header-content">
+      <div class="logo">
+        <i class="fas fa-cash-register"></i>
+        <span>MegaAdmin</span>
+      </div>
+      <nav class="nav">
+        <ul>
+          <li><a href="#" class="nav-link active"><i class="fas fa-home"></i> Inicio</a></li>
+          <li><a href="#" class="nav-link"><i class="fas fa-chart-bar"></i> Reportes</a></li>
+          <li><a href="#" class="nav-link"><i class="fas fa-cog"></i> Configuración</a></li>
+        </ul>
+      </nav>
+    </div>
   </header>
 
-  <main class="main-container">
-    <div class="button-box">
-      <div class="box ingresos-box">
-        <p class="box-title ingreso-title">Ingresos</p>
-        <a href="/ingresos" class="circle-button ingreso"></a>
+  <main class="main-content">
+    <div class="container">
+      <div class="welcome-user" style="text-align:right; margin-bottom:10px; font-size:1.1em; color:#2563eb; font-weight:500;">
+        Bienvenido <span id="usuario-actual">{{USUARIO_ACTUAL}}</span>
       </div>
-      <div class="box egresos-box">
-        <p class="box-title egreso-title">Egresos</p>
-        <a href="/front/egresos.html" class="circle-button egreso"></a>
+      <!-- Título de la sección -->
+      <div class="section-header">
+        <h1>Control de Caja</h1>
+        <p>Gestiona tus movimientos de efectivo de forma rápida y segura</p>
+      </div>
+
+      <!-- Botones principales -->
+      <div class="action-buttons">
+        <button id="btn-ingresos" class="btn btn-ingreso" type="button">
+          <div class="btn-icon">
+            <i class="fas fa-plus-circle"></i>
+          </div>
+          <div class="btn-content">
+            <span class="btn-title">Ingresos</span>
+            <span class="btn-subtitle">Registrar entrada de dinero</span>
+          </div>
+        </button>
+        
+        <button id="btn-egresos" class="btn btn-egreso" type="button">
+          <div class="btn-icon">
+            <i class="fas fa-minus-circle"></i>
+          </div>
+          <div class="btn-content">
+            <span class="btn-title">Egresos</span>
+            <span class="btn-subtitle">Registrar salida de dinero</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- Saldo actual -->
+      <div class="saldo-section">
+        <div class="saldo-label">Saldo Actual</div>
+        <div class="saldo-container">
+          <div id="saldo" class="saldo">$0,00</div>
+          <div id="saldo-indicator" class="saldo-indicator"></div>
+        </div>
+        <div id="detalle-saldos" style="font-size:0.95em; color:#555; margin-top:4px; margin-bottom:8px; text-align:right; min-height:18px;">
+          <!-- Aquí se mostrarán los detalles de ingresos y egresos -->
+        </div>
+        <!-- Botón de detalle del saldo -->
+        <button id="saldo-detail" class="saldo-detail-btn">
+          <i class="fas fa-info-circle"></i>
+          <span>Ver detalle del saldo</span>
+        </button>
+      </div>
+
+      <!-- Link para ver movimientos -->
+      <div class="movements-section">
+        <a href="#" id="link-movimientos" class="movements-link">
+          <i class="fas fa-list-ul"></i>
+          <span>Ver todos los movimientos</span>
+          <i class="fas fa-chevron-right"></i>
+        </a>
+      </div>
+
+      <!-- Toggle de arqueo -->
+      <div class="arqueo-section">
+        <div class="arqueo-status">
+          <div class="status-info">
+            <span id="estado-text" class="status-text">Arqueo cerrado</span>
+            <span id="estado-subtitle" class="status-subtitle">Presiona para abrir un nuevo arqueo</span>
+          </div>
+          <div class="toggle-container">
+            <div id="toggle-arqueo" class="toggle">
+              <div class="toggle-circle">
+                <i class="fas fa-power-off"></i>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="info-box">Usuario: <span id="usuarioActual">{{USUARIO_ACTUAL}}</span></div>
-    <div class="arco-controls">
-      {{#if ARCO_ID_ABIERTO}}
-        <form method="POST" action="/arco/cerrar" style="display:inline;">
-          <input type="hidden" name="arco_id" value="{{ARCO_ID_ABIERTO}}">
-          <button type="submit" class="btn btn-danger" id="cerrarCajaBtn">Cerrar Caja (ID: {{ARCO_ID_ABIERTO}})</button>
-        </form>
-        <span style="color:#145a32; margin-left:10px; font-weight:bold; background:#d4efdf; padding:4px 10px; border-radius:6px;">Caja abierta (ID: {{ARCO_ID_ABIERTO}})</span>
-      {{else}}
-        <form method="POST" action="/arco/abrir-avanzado" style="display:inline;">
-          <input type="hidden" name="turno" value="M">
-          <button type="submit" class="btn" id="abrirCajaBtn">Abrir Caja (Turno M)</button>
-        </form>
-        <span style="color:#7d6608; margin-left:10px; font-weight:bold; background:#f9e79f; padding:4px 10px; border-radius:6px;">No hay caja abierta</span>
-      {{/if}}
-    </div>
-    {{ARCO_HTML}}
   </main>
+
+  <!-- Modal de confirmación -->
+  <div id="confirmation-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h3>Confirmar Cierre de Arqueo</h3>
+      </div>
+      <div class="modal-body">
+        <p>¿Estás seguro que querés cerrar el arqueo actual?</p>
+        <div class="modal-saldo">
+          <span>Saldo final: </span>
+          <span id="modal-saldo-value">$0,00</span>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn-modal btn-cancel">Cancelar</button>
+        <button id="modal-confirm" class="btn-modal btn-confirm">Confirmar Cierre</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/movimiento.js"></script>
 </body>
 </html>
+
