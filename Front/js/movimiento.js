@@ -2,6 +2,7 @@
 let arqueoAbierto = false
 let arcoIDActual = null
 let saldoActual = 0 // Se inicializa en 0, se actualizará con el valor real
+let saldoInicial = 0 // NUEVO: Para mostrar el saldo inicial del arco
 let totalIngresos = 0
 let totalEgresos = 0
 
@@ -47,17 +48,18 @@ function formatNumber(number) {
 function updateUI() {
   // Actualizar saldo actual
   saldoEl.textContent = formatCurrency(saldoActual)
-  // Actualizar saldo inicial
-  const saldoInicialEl = document.getElementById("saldo-inicial")
-  if (saldoInicialEl) {
-    saldoInicialEl.textContent = formatCurrency(window.saldoInicial || 0)
-  }
-  // Mostrar detalle de ingresos y egresos si está disponible
+  
+  // NUEVO: Mostrar detalle completo con saldo inicial visible
   const detalleSaldos = document.getElementById("detalle-saldos")
   if (detalleSaldos) {
+    // Mostrar el saldo inicial, ingresos, egresos y el total
     detalleSaldos.innerHTML =
-      `<span style="color:#10b981;">Ingresos: <b>${formatCurrency(totalIngresos)}</b></span> &nbsp;|&nbsp; ` +
-      `<span style="color:#ef4444;">Egresos: <b>${formatCurrency(totalEgresos)}</b></span>`
+      `<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-end;align-items:center;">
+        <span style="color:#6366f1;font-weight:600;">💰 Inicial: <b>${formatCurrency(saldoInicial)}</b></span>
+        <span style="color:#10b981;">📈 Ingresos: <b>${formatCurrency(totalIngresos)}</b></span>
+        <span style="color:#ef4444;">📉 Egresos: <b>${formatCurrency(totalEgresos)}</b></span>
+        <span style="color:#6b7280;font-size:0.9em;">| Total = Inicial + Ingresos - Egresos</span>
+      </div>`
   }
 
   // Aplicar clases según el saldo
@@ -201,10 +203,14 @@ toggle.addEventListener("click", () => {
       .then((res) => res.json())
       .then((data) => {
         arqueoAbierto = true
-        saldoActual = 0
         arcoIDActual = data.id || null
+        // IMPORTANTE: Actualizar el saldo inicial con el del nuevo arco
+        saldoInicial = data.saldo_inicial || 0
+        saldoActual = saldoInicial // El saldo actual comienza siendo el saldo inicial
+        totalIngresos = 0
+        totalEgresos = 0
         updateUI()
-        showNotification("Nuevo arqueo abierto correctamente")
+        showNotification(`Nuevo arqueo abierto correctamente. Saldo inicial: ${formatCurrency(saldoInicial)}`)
       })
       .catch(() => {
         showNotification("Error al abrir el arqueo", "error")
@@ -213,7 +219,6 @@ toggle.addEventListener("click", () => {
 })
 
 modalCancel.addEventListener("click", hideModal)
-
 
 // --- Lógica de cierre de arqueo y retiro de caja ---
 modalConfirm.addEventListener("click", () => {
@@ -255,8 +260,6 @@ if (retiroConfirm) {
   retiroConfirm.addEventListener("click", () => {
     const monto = parseFloat(retiroMontoInput.value) || 0
     if (monto > 0) {
-      // Enviar cierre y monto de retiro en la misma petición para que el servidor
-      // cree el RetiroCaja dentro del cierre (operación atómica en el servidor).
       fetch('/arco/cerrar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -270,7 +273,6 @@ if (retiroConfirm) {
             hideRetiroModal()
             return
           }
-          // Éxito: actualizar estado local según la respuesta
           arqueoAbierto = false
           arcoIDActual = null
           showNotification('Arqueo cerrado y retiro registrado', 'success')
@@ -282,7 +284,7 @@ if (retiroConfirm) {
               if (typeof data.saldo_total === 'number') saldoActual = data.saldo_total
               if (typeof data.total_ingresos === 'number') totalIngresos = data.total_ingresos
               if (typeof data.total_egresos === 'number') totalEgresos = data.total_egresos
-              window.saldoInicial = typeof data.saldo_inicial === 'number' ? data.saldo_inicial : 0
+              if (typeof data.saldo_inicial === 'number') saldoInicial = data.saldo_inicial
               updateUI()
             }).catch(() => {})
         })
@@ -353,6 +355,11 @@ document.addEventListener("DOMContentLoaded", () => {
         arqueoAbierto = data.arco_abierto
         if (data.arco && typeof data.arco.id !== "undefined") {
           arcoIDActual = data.arco.id
+          // NUEVO: Capturar el saldo inicial del arco actual
+          if (typeof data.arco.saldo_inicial === "number") {
+            saldoInicial = data.arco.saldo_inicial
+            console.log("[ARCO] Saldo inicial del arco actual:", saldoInicial)
+          }
         }
         updateUI()
       }
@@ -361,20 +368,31 @@ document.addEventListener("DOMContentLoaded", () => {
   // Mostrar usuario actual si está disponible en el HTML
   const usuarioActual = document.getElementById("usuario-actual")
   if (usuarioActual && usuarioActual.textContent.includes("{{USUARIO_ACTUAL}}")) {
-    // Si el backend no reemplazó el placeholder, ocultar el mensaje
     usuarioActual.parentElement.style.display = "none"
   }
 
-  // Consultar saldo actual y saldo inicial del backend (usando la vista)
+  // CONSULTAR SALDO ACTUAL Y SALDO INICIAL DEL BACKEND
   fetch("/api/saldo-ultimo-arco", { credentials: "include" })
     .then((res) => res.json())
     .then((data) => {
-      // Usar saldo_total, que es el saldo actualizado de la vista
+      console.log("[DEBUG] Datos recibidos del backend:", data)
+      
+      // NUEVO: Capturar saldo_inicial de la respuesta
+      if (typeof data.saldo_inicial === "number") {
+        saldoInicial = data.saldo_inicial
+        console.log("[SALDO] Saldo inicial:", saldoInicial)
+      } else {
+        saldoInicial = 0
+      }
+      
+      // Usar saldo_total, que ahora incluye el saldo_inicial (gracias a la vista actualizada)
       if (typeof data.saldo_total === "number") {
         saldoActual = data.saldo_total
+        console.log("[SALDO] Saldo total (incluye inicial):", saldoActual)
       } else {
-        saldoActual = 0
+        saldoActual = saldoInicial // Si no hay saldo_total, usar el inicial
       }
+      
       // Asignar totales de ingresos y egresos correctamente
       if (typeof data.total_ingresos === "number") {
         totalIngresos = data.total_ingresos
@@ -386,17 +404,20 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         totalEgresos = 0
       }
-      // Mostrar saldo inicial si lo necesitas en el front
-      if (typeof data.saldo_inicial === "number") {
-        window.saldoInicial = data.saldo_inicial
-      } else {
-        window.saldoInicial = 0
-      }
+      
+      console.log("[SALDO] Resumen:", {
+        inicial: saldoInicial,
+        ingresos: totalIngresos,
+        egresos: totalEgresos,
+        total: saldoActual
+      })
+      
       updateUI()
     })
-    .catch(() => {
+    .catch((err) => {
+      console.error("[ERROR] No se pudo obtener el saldo:", err)
       saldoActual = 0
-      window.saldoInicial = 0
+      saldoInicial = 0
       updateUI()
     })
 })
@@ -463,6 +484,7 @@ document
     document.getElementById("modal-movimientos").style.display = "none"
     document.body.style.overflow = ""
   })
+
 // Efectos de hover para los botones
 ;[btnIngresos, btnEgresos].forEach((btn) => {
   btn.addEventListener("mouseenter", () => {

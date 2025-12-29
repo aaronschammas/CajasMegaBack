@@ -11,7 +11,7 @@ import (
 
 var DB *gorm.DB
 
-func InitDB() { //crea una DB que se llame "fuerte_caja" ta muy feo esto viejo cambialo en algun momento
+func InitDB() {
 	// DSN para conectarse al servidor (sin seleccionar una base)
 	serverDSN := "root:12345@tcp(127.0.0.1:3306)/?charset=utf8mb4&parseTime=True&loc=Local"
 	// Nombre de la base que queremos usar/crear
@@ -60,31 +60,37 @@ func InitDB() { //crea una DB que se llame "fuerte_caja" ta muy feo esto viejo c
 	}
 
 	// Creación/Actualización de VISTAS
+	// CAMBIO CRÍTICO: Ahora incluye saldo_inicial en el cálculo del saldo_total
 	vistaSQL := `
-			CREATE OR REPLACE VIEW vista_saldo_arqueos AS
-			SELECT
-				a.id AS arqueo_id,
-				a.fecha_apertura,
-				a.fecha_cierre,
-				a.turno,
-				a.activo,
-				a.saldo_inicial,
-				COALESCE(SUM(CASE WHEN m.movement_type = 'Ingreso' THEN m.amount ELSE 0 END), 0) AS total_ingresos,
-				COALESCE(SUM(CASE WHEN m.movement_type = 'Egreso' THEN m.amount ELSE 0 END), 0) AS total_egresos,
-				COALESCE(SUM(CASE WHEN m.movement_type = 'RetiroCaja' THEN m.amount ELSE 0 END), 0) AS total_retiros,
-				-- Nuevo comportamiento: mostrar el total del arco como ingresos - egresos
-				COALESCE(SUM(CASE WHEN m.movement_type = 'Ingreso' THEN m.amount ELSE 0 END), 0)
-				- COALESCE(SUM(CASE WHEN m.movement_type = 'Egreso' THEN m.amount ELSE 0 END), 0)
-				AS saldo_total
-			FROM
-				arcos a
-			LEFT JOIN
-				movements m ON m.arco_id = a.id AND m.deleted_at IS NULL
-			GROUP BY
-				a.id, a.fecha_apertura, a.fecha_cierre, a.turno, a.activo, a.saldo_inicial;`
+		CREATE OR REPLACE VIEW vista_saldo_arqueos AS
+		SELECT
+			a.id AS arqueo_id,
+			a.fecha_apertura,
+			a.fecha_cierre,
+			a.turno,
+			a.activo,
+			a.saldo_inicial,
+			COALESCE(SUM(CASE WHEN m.movement_type = 'Ingreso' THEN m.amount ELSE 0 END), 0) AS total_ingresos,
+			COALESCE(SUM(CASE WHEN m.movement_type = 'Egreso' THEN m.amount ELSE 0 END), 0) AS total_egresos,
+			COALESCE(SUM(CASE WHEN m.movement_type = 'RetiroCaja' THEN m.amount ELSE 0 END), 0) AS total_retiros,
+			-- CAMBIO: Ahora el saldo_total incluye el saldo_inicial
+			a.saldo_inicial
+			+ COALESCE(SUM(CASE WHEN m.movement_type = 'Ingreso' THEN m.amount ELSE 0 END), 0)
+			- COALESCE(SUM(CASE WHEN m.movement_type = 'Egreso' THEN m.amount ELSE 0 END), 0)
+			- COALESCE(SUM(CASE WHEN m.movement_type = 'RetiroCaja' THEN m.amount ELSE 0 END), 0)
+			AS saldo_total
+		FROM
+			arcos a
+		LEFT JOIN
+			movements m ON m.arco_id = a.id AND m.deleted_at IS NULL
+		GROUP BY
+			a.id, a.fecha_apertura, a.fecha_cierre, a.turno, a.activo, a.saldo_inicial;`
+
 	if err := DB.Exec(vistaSQL).Error; err != nil {
 		log.Fatal("Error al crear la vista de saldo de arqueos:", err)
 	}
+
+	log.Println("[DATABASE] Vista 'vista_saldo_arqueos' actualizada correctamente (incluye saldo_inicial)")
 
 	// Datos iniciales
 	seedData()

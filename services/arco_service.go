@@ -28,8 +28,7 @@ func NewArcoService() *ArcoService {
 
 // Abrir un arco (si el último está cerrado, crea uno nuevo; si está abierto, lo cierra y luego crea uno nuevo)
 func (s *ArcoService) AbrirArco(userID uint, turno string) (*models.Arco, error) {
-	// Nuevo comportamiento: al abrir un arco siempre iniciar saldo en 0
-	// Si hay un arco abierto del mismo usuario y turno, cerrarlo
+	// Si hay un arco abierto del mismo usuario y turno, cerrarlo primero
 	var arcoAbierto models.Arco
 	errAbierto := database.DB.Where("created_by = ? AND turno = ? AND activo = ?", userID, turno, true).First(&arcoAbierto).Error
 	if errAbierto == nil {
@@ -44,7 +43,21 @@ func (s *ArcoService) AbrirArco(userID uint, turno string) (*models.Arco, error)
 		}
 		_ = database.DB.Save(&arcoAbierto).Error
 	}
-	// Crear un nuevo arco con saldo inicial
+
+	// CAMBIO CRÍTICO: Obtener el saldo final del último arco cerrado (cualquier usuario/turno)
+	// Este será el saldo inicial del nuevo arco
+	var ultimoArcoCerrado models.Arco
+	saldoInicialNuevo := 0.0
+	errUltimo := database.DB.Where("activo = ?", false).Order("id DESC").First(&ultimoArcoCerrado).Error
+	if errUltimo == nil {
+		// Si existe un arco cerrado anterior, usar su saldo final
+		saldoInicialNuevo = ultimoArcoCerrado.SaldoFinal
+		log.Printf("[ARCO] Nuevo arco iniciará con saldo: %.2f (tomado del arco ID: %d)", saldoInicialNuevo, ultimoArcoCerrado.ID)
+	} else {
+		log.Printf("[ARCO] No hay arcos cerrados anteriores. Nuevo arco iniciará con saldo: 0.00")
+	}
+
+	// Crear un nuevo arco con saldo inicial igual al saldo final del arco anterior
 	nuevoArco := models.Arco{
 		CreatedBy:     userID,
 		FechaApertura: time.Now(),
@@ -52,12 +65,14 @@ func (s *ArcoService) AbrirArco(userID uint, turno string) (*models.Arco, error)
 		Turno:         turno,
 		Activo:        true,
 		Fecha:         time.Now().Truncate(24 * time.Hour),
-		SaldoInicial:  0,
+		SaldoInicial:  saldoInicialNuevo, // AQUÍ ESTÁ EL CAMBIO PRINCIPAL
 		SaldoFinal:    0,
 	}
 	if err := database.DB.Create(&nuevoArco).Error; err != nil {
 		return nil, err
 	}
+
+	log.Printf("[ARCO] Nuevo arco creado - ID: %d, Saldo Inicial: %.2f", nuevoArco.ID, nuevoArco.SaldoInicial)
 	return &nuevoArco, nil
 }
 
@@ -85,6 +100,8 @@ func (s *ArcoService) CerrarArco(arcoID uint, userID uint) (*models.Arco, error)
 	if err := database.DB.Save(&arco).Error; err != nil {
 		return nil, err
 	}
+
+	log.Printf("[ARCO] Arco cerrado - ID: %d, Saldo Final: %.2f", arco.ID, arco.SaldoFinal)
 	return &arco, nil
 }
 
@@ -176,6 +193,8 @@ func (s *ArcoService) CerrarArcoConRetiro(arcoID uint, userID uint, retiroAmount
 		if err := tx.Save(&arco).Error; err != nil {
 			return err
 		}
+
+		log.Printf("[ARCO] Arco cerrado con retiro - ID: %d, Saldo Final: %.2f, Retiro: %.2f", arco.ID, arco.SaldoFinal, retiroAmount)
 		resultArco = arco
 		return nil
 	})
@@ -283,6 +302,7 @@ func (s *ArcoService) UltimoArcoAbiertoOCerrado() (bool, error) {
 func (s *ArcoService) CerrarYAbrirNuevoArco(userID uint, turno string) (*models.Arco, error) {
 	var nuevoArco models.Arco
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		// Cerrar arco actual si existe
 		var arco models.Arco
 		err := tx.Where("created_by = ? AND turno = ? AND activo = ?", userID, turno, true).First(&arco).Error
 		if err == nil {
@@ -290,10 +310,26 @@ func (s *ArcoService) CerrarYAbrirNuevoArco(userID uint, turno string) (*models.
 			arco.FechaCierre = &now
 			arco.HoraCierre = &now
 			arco.Activo = false
+			// Calcular saldo final
+			saldoFinal, errSaldo := calcularSaldoFinalTx(tx, arco.ID, arco.SaldoInicial)
+			if errSaldo == nil {
+				arco.SaldoFinal = saldoFinal
+			}
 			if err := tx.Save(&arco).Error; err != nil {
 				return err
 			}
 		}
+
+		// CAMBIO: Obtener el saldo final del último arco cerrado
+		var ultimoArcoCerrado models.Arco
+		saldoInicialNuevo := 0.0
+		errUltimo := tx.Where("activo = ?", false).Order("id DESC").First(&ultimoArcoCerrado).Error
+		if errUltimo == nil {
+			saldoInicialNuevo = ultimoArcoCerrado.SaldoFinal
+			log.Printf("[ARCO] Nuevo arco (en transacción) iniciará con saldo: %.2f (tomado del arco ID: %d)", saldoInicialNuevo, ultimoArcoCerrado.ID)
+		}
+
+		// Crear nuevo arco con el saldo del anterior
 		nuevoArco = models.Arco{
 			CreatedBy:     userID,
 			FechaApertura: time.Now(),
@@ -301,6 +337,8 @@ func (s *ArcoService) CerrarYAbrirNuevoArco(userID uint, turno string) (*models.
 			Turno:         turno,
 			Activo:        true,
 			Fecha:         time.Now().Truncate(24 * time.Hour),
+			SaldoInicial:  saldoInicialNuevo, // CAMBIO PRINCIPAL
+			SaldoFinal:    0,
 		}
 		if err := tx.Create(&nuevoArco).Error; err != nil {
 			return err

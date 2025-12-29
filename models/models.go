@@ -134,7 +134,9 @@ type VistaSaldoArqueo struct {
 	FechaCierre   *time.Time `gorm:"column:fecha_cierre" json:"fecha_cierre"`
 	Turno         string     `gorm:"column:turno" json:"turno"`
 	Activo        bool       `gorm:"column:activo" json:"activo"`
+	SaldoInicial  float64    `gorm:"column:saldo_inicial" json:"saldo_inicial"` // CAMPO AÑADIDO
 	TotalIngresos float64    `gorm:"column:total_ingresos" json:"total_ingresos"`
 	TotalEgresos  float64    `gorm:"column:total_egresos" json:"total_egresos"`
-	SaldoTotal    float64    `gorm:"column:saldo_total" json:"saldo_total"`
+	TotalRetiros  float64    `gorm:"column:total_retiros" json:"total_retiros"` // CAMPO AÑADIDO
+	SaldoTotal    float64    `gorm:"column:saldo_total" json:"saldo_total"`     // Ahora incluye saldo_inicial
 }
