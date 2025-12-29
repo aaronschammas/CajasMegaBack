@@ -5,7 +5,10 @@ import (
 	"caja-fuerte/models"   //
 	"errors"               //
 	"fmt"                  //
-	"time"                 //
+	"strings"
+
+	//
+	"time" //
 
 	"gorm.io/gorm" //
 )
@@ -16,24 +19,46 @@ func NewMovementService() *MovementService { //
 	return &MovementService{} //
 }
 
+// Errores exportados para permitir manejo específico en los controllers
+var (
+	ErrNoOpenArco     = errors.New("no open arco for user/turn")
+	ErrFKConstraint   = errors.New("foreign key constraint")
+	ErrValidation     = errors.New("validation error")
+	ErrCreateMovement = errors.New("create movement error")
+)
+
 func (s *MovementService) CreateBatchMovements(movements []models.MovementRequest) error { //
 	return database.DB.Transaction(func(tx *gorm.DB) error { //
 		for _, movReq := range movements { //
+			// Validaciones básicas antes de intentar insertar
+			if movReq.Amount <= 0 {
+				return fmt.Errorf("%w: amount must be > 0", ErrValidation)
+			}
+			if movReq.Shift != "M" && movReq.Shift != "T" {
+				return fmt.Errorf("%w: invalid shift '%s'", ErrValidation, movReq.Shift)
+			}
+
+			// Si es un RetiroCaja, forzar el concepto y concept_id a 4
+			if movReq.MovementType == "RetiroCaja" {
+				movReq.ConceptID = 4
+			}
+
 			// --- Validar que hay un arco abierto para el usuario y turno ---
 			arco, err := getArcoForMovement(tx, movReq.CreatedBy, movReq.Shift)
 			if err != nil {
-				return err // No hay arco abierto o error
+				// envolver el error con el sentinel para que el controller lo interprete
+				return fmt.Errorf("%w: %s", ErrNoOpenArco, err.Error())
 			}
 			// Generar reference_id
 			referenceID, err := s.generateReferenceID(tx, movReq.CreatedBy) // Pasamos tx para el contador
 			if err != nil {                                                 //
-				return err //
+				return fmt.Errorf("%w: %s", ErrCreateMovement, err.Error())
 			}
 
 			movement := models.Movement{ //
 				ReferenceID:  referenceID,         //
 				MovementType: movReq.MovementType, //
-				MovementDate: time.Now(),          // // Opcionalmente, tomar de movReq si el cliente la envía
+				MovementDate: time.Now(),          // //
 				Amount:       movReq.Amount,       //
 				Shift:        movReq.Shift,        //
 				ConceptID:    movReq.ConceptID,    //
@@ -43,19 +68,29 @@ func (s *MovementService) CreateBatchMovements(movements []models.MovementReques
 			}
 
 			if err := tx.Create(&movement).Error; err != nil { //
-				return err //
+				// detectar constraint de FK
+				if strings.Contains(strings.ToLower(err.Error()), "foreign key") || strings.Contains(err.Error(), "1452") {
+					return fmt.Errorf("%w: %s", ErrFKConstraint, err.Error())
+				}
+				return fmt.Errorf("%w: %s", ErrCreateMovement, err.Error()) //
 			}
 
 			// Crear registro específico según el tipo
 			if movReq.MovementType == "Ingreso" { //
 				specificIncome := models.SpecificIncome{MovementID: movement.MovementID} //
 				if err := tx.Create(&specificIncome).Error; err != nil {                 //
-					return err //
+					if strings.Contains(strings.ToLower(err.Error()), "foreign key") || strings.Contains(err.Error(), "1452") {
+						return fmt.Errorf("%w: %s", ErrFKConstraint, err.Error())
+					}
+					return fmt.Errorf("%w: %s", ErrCreateMovement, err.Error())
 				}
 			} else { //
 				specificExpense := models.SpecificExpense{MovementID: movement.MovementID} //
 				if err := tx.Create(&specificExpense).Error; err != nil {                  //
-					return err //
+					if strings.Contains(strings.ToLower(err.Error()), "foreign key") || strings.Contains(err.Error(), "1452") {
+						return fmt.Errorf("%w: %s", ErrFKConstraint, err.Error())
+					}
+					return fmt.Errorf("%w: %s", ErrCreateMovement, err.Error())
 				}
 			}
 		}
@@ -197,7 +232,16 @@ func getArcoForMovement(tx *gorm.DB, userID uint, turno string) (*models.Arco, e
 		Order("id DESC").
 		First(&arco).Error
 	if err != nil {
-		return nil, errors.New("No hay un arco abierto para este turno. Debe abrir el arco antes de crear movimientos.")
+		return nil, fmt.Errorf("%w: No hay un arco abierto para este turno. Debe abrir el arco antes de crear movimientos.", ErrNoOpenArco)
 	}
 	return &arco, nil
+}
+
+func (s *MovementService) GetMovementsByArcoID(arcoID uint) ([]models.Movement, error) {
+	var movements []models.Movement
+	err := database.DB.Preload("Creator").Preload("Concept").Where("arco_id = ?", arcoID).Find(&movements).Error
+	if err != nil {
+		return nil, err
+	}
+	return movements, nil
 }

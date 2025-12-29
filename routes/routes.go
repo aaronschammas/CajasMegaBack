@@ -57,6 +57,9 @@ func SetupRoutes() *gin.Engine { //
 	protected.Use(middleware.AuthMiddleware()) //
 	{
 		protected.GET("/movimientos", movementController.MovementPage)
+
+		protected.POST("/movimientos", movementController.CreateBatch)
+
 		protected.GET("/ingresos", movementController.IngresosPage)
 		protected.GET("/egresos", movementController.EgresosPage)
 		protected.GET("/ingresos/filtros", movementController.IngresosPageWithFilters)
@@ -71,9 +74,11 @@ func SetupRoutes() *gin.Engine { //
 		protected.GET("/api/me", controllers.MeHandler) // Nuevo endpoint REST
 		protected.GET("/api/saldo-ultimo-arco", controllers.SaldoUltimoArcoHandler)
 		protected.GET("/api/arco-estado", controllers.EstadoArcoAPIHandler)
-		protected.GET("/graficos", func(c *gin.Context) {
-			c.File("./Front/graficos.html")
-		})
+		// Endpoint para obtener movimientos por arcoID
+		protected.GET("/api/movimientos/arco/:arco_id", movementController.GetMovementsByArcoID)
+		// Endpoint para eliminar (soft-delete) un movimiento
+		protected.DELETE("/api/movimientos/:movement_id", movementController.DeleteMovement)
+		protected.GET("/reporte", controllers.MostrarPaginaReportes)
 	}
 
 	return r //

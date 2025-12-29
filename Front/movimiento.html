@@ -1,3 +1,24 @@
+  <!-- Modal de retiro de caja tras cierre -->
+  <div id="retiro-modal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width:400px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; border-radius: 1rem 1rem 0 0; display: flex; align-items: center; gap: 0.75rem;">
+        <i class="fas fa-vault"></i>
+        <h3 style="margin:0; font-size:1.15rem; font-weight:600;">Retiro de Caja</h3>
+      </div>
+      <div class="modal-body" style="padding:2rem;">
+        <p style="margin-bottom:1.5rem; color:#374151;">¿Deseas retirar una parte del dinero para resguardo? (opcional)</p>
+        <div style="margin-bottom:1.2rem;">
+          <label for="retiro-monto" style="font-weight:500; color:#2563eb;">Monto a retirar:</label>
+          <input type="number" id="retiro-monto" min="0" step="0.01" value="0" style="width:100%;padding:0.5rem 1rem;font-size:1.1rem;border-radius:0.5rem;border:1.5px solid #d1d5db;margin-top:0.5rem;">
+        </div>
+        <div style="color:#6b7280;font-size:0.95em;">Puedes dejarlo en 0 si no deseas retirar efectivo.</div>
+      </div>
+      <div class="modal-actions" style="padding:1.5rem 2rem; border-top:1px solid #e5e7eb; display:flex; gap:1rem; justify-content:flex-end;">
+        <button id="retiro-cancel" class="btn-modal btn-cancel" style="background:#f3f4f6; color:#6b7280;">Omitir</button>
+        <button id="retiro-confirm" class="btn-modal btn-confirm" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color:white;">Confirmar Retiro</button>
+      </div>
+    </div>
+  </div>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -16,8 +37,8 @@
       </div>
       <nav class="nav">
         <ul>
-          <li><a href="#" class="nav-link active"><i class="fas fa-home"></i> Inicio</a></li>
-          <li><a href="#" class="nav-link"><i class="fas fa-chart-bar"></i> Reportes</a></li>
+          <li><a href="/reporte_general" class="nav-link active"><i class="fas fa-home"></i> Inicio</a></li>
+          <li><a href="/reporte" class="nav-link"><i class="fas fa-chart-bar"></i> Resumen Diario</a></li>
           <li><a href="#" class="nav-link"><i class="fas fa-cog"></i> Configuración</a></li>
         </ul>
       </nav>
@@ -28,11 +49,9 @@
     <div class="container">
       <div class="welcome-user" style="text-align:right; margin-bottom:10px; font-size:1.1em; color:#2563eb; font-weight:500;">
         Bienvenido <span id="usuario-actual">{{USUARIO_ACTUAL}}</span>
-      </div>
-      <!-- Título de la sección -->
+      </div> 
       <div class="section-header">
         <h1>Control de Caja</h1>
-        <p>Gestiona tus movimientos de efectivo de forma rápida y segura</p>
       </div>
 
       <!-- Botones principales -->
@@ -57,22 +76,31 @@
           </div>
         </button>
       </div>
-
-      <!-- Saldo actual -->
-      <div class="saldo-section">
-        <div class="saldo-label">Saldo Actual</div>
+      <div class="saldo-section">     
+        <div class="saldo-label" style="margin-top:10px;">Saldo Actual del Arco</div>
         <div class="saldo-container">
           <div id="saldo" class="saldo">$0,00</div>
           <div id="saldo-indicator" class="saldo-indicator"></div>
         </div>
-        <div id="detalle-saldos" style="font-size:0.95em; color:#555; margin-top:4px; margin-bottom:8px; text-align:right; min-height:18px;">
-          <!-- Aquí se mostrarán los detalles de ingresos y egresos -->
-        </div>
+        <div id="detalle-saldos" style="font-size:0.95em; color:#555; margin-top:4px; margin-bottom:8px; text-align:right; min-height:18px;"></div>
         <!-- Botón de detalle del saldo -->
         <button id="saldo-detail" class="saldo-detail-btn">
           <i class="fas fa-info-circle"></i>
           <span>Ver detalle del saldo</span>
         </button>
+        <!--Modal flotante para detalle de movimientos-->
+        <div id="modal-movimientos" class="modal" style="display:none;z-index:2000;">
+          <div class="modal-content" style="max-width:600px;">
+            <div class="modal-header">
+              <i class="fas fa-list"></i>
+              <h3>Movimientos del Arco</h3>
+            </div>
+            <div class="modal-body" id="movimientos-list" style="max-height:400px;overflow-y:auto;"></div>
+            <div class="modal-actions">
+              <button id="modal-movimientos-cerrar" class="btn-modal btn-cancel">Cerrar</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Link para ver movimientos -->
@@ -84,7 +112,7 @@
         </a>
       </div>
 
-      <!-- Toggle de arqueo -->
+       <!--Toggle de arqueo-->
       <div class="arqueo-section">
         <div class="arqueo-status">
           <div class="status-info">
@@ -103,18 +131,136 @@
     </div>
   </main>
 
-  <!-- Modal de confirmación -->
+   Modal de calculadora de billetes 
   <div id="confirmation-modal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content bill-counting-modal">
       <div class="modal-header">
-        <i class="fas fa-exclamation-triangle"></i>
-        <h3>Confirmar Cierre de Arqueo</h3>
+        <i class="fas fa-calculator"></i>
+        <h3>Conteo de Billetes - Cierre de Arqueo</h3>
       </div>
       <div class="modal-body">
-        <p>¿Estás seguro que querés cerrar el arqueo actual?</p>
-        <div class="modal-saldo">
-          <span>Saldo final: </span>
-          <span id="modal-saldo-value">$0,00</span>
+         <!--Calculadora de billetes--> 
+        <div class="bill-counting-section">
+          <h4><i class="fas fa-money-bill-wave"></i> Contar billetes físicos</h4>
+          <p class="instruction-text">Ingresa la cantidad de billetes que tienes físicamente en caja:</p>
+          
+          <div class="bill-calculator">
+             Billete de $20000 
+            <div class="bill-row">
+              <div class="bill-denomination">
+                <i class="fas fa-money-bill"></i>
+                <span class="bill-value">$20.000</span>
+              </div>
+              <div class="bill-counter">
+                <button type="button" class="counter-btn minus" data-denomination="20000">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <input type="number" class="bill-quantity" id="bill-20000" data-denomination="20000" value="0" min="0">
+                <button type="button" class="counter-btn plus" data-denomination="20000">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              <div class="bill-total" id="total-20000">$0</div>
+            </div>
+
+             Billete de $10000 
+            <div class="bill-row">
+              <div class="bill-denomination">
+                <i class="fas fa-money-bill"></i>
+                <span class="bill-value">$10.000</span>
+              </div>
+              <div class="bill-counter">
+                <button type="button" class="counter-btn minus" data-denomination="10000">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <input type="number" class="bill-quantity" id="bill-10000" data-denomination="10000" value="0" min="0">
+                <button type="button" class="counter-btn plus" data-denomination="10000">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              <div class="bill-total" id="total-10000">$0</div>
+            </div>
+
+             Billete de $2000 
+            <div class="bill-row">
+              <div class="bill-denomination">
+                <i class="fas fa-money-bill"></i>
+                <span class="bill-value">$2.000</span>
+              </div>
+              <div class="bill-counter">
+                <button type="button" class="counter-btn minus" data-denomination="2000">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <input type="number" class="bill-quantity" id="bill-2000" data-denomination="2000" value="0" min="0">
+                <button type="button" class="counter-btn plus" data-denomination="2000">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              <div class="bill-total" id="total-2000">$0</div>
+            </div>
+
+             Billete de $1000 
+            <div class="bill-row">
+              <div class="bill-denomination">
+                <i class="fas fa-money-bill"></i>
+                <span class="bill-value">$1.000</span>
+              </div>
+              <div class="bill-counter">
+                <button type="button" class="counter-btn minus" data-denomination="1000">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <input type="number" class="bill-quantity" id="bill-1000" data-denomination="1000" value="0" min="0">
+                <button type="button" class="counter-btn plus" data-denomination="1000">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              <div class="bill-total" id="total-1000">$0</div>
+            </div>
+
+             Resto (monedas y billetes menores) 
+            <div class="bill-row resto-row">
+              <div class="bill-denomination">
+                <i class="fas fa-coins"></i>
+                <span class="bill-value">Resto</span>
+                <small>(monedas y otros)</small>
+              </div>
+              <div class="bill-counter">
+                <input type="number" class="bill-quantity resto-input" id="bill-resto" data-denomination="1" value="0" min="0" step="0.01" placeholder="0.00">
+              </div>
+              <div class="bill-total" id="total-resto">$0</div>
+            </div>
+          </div>
+
+           Cálculo visual 
+          <div class="calculation-display">
+            <h5><i class="fas fa-equals"></i> Cálculo:</h5>
+            <div id="calculation-formula" class="formula">
+              $20.000 × 0 + $10.000 × 0 + $2.000 × 0 + $1.000 × 0 + Resto $0 = $0
+            </div>
+          </div>
+
+           Resumen final 
+          <div class="final-summary">
+            <div class="summary-row">
+              <div class="summary-item total-counted">
+                <span class="summary-label">Total Contado:</span>
+                <span id="total-counted-amount" class="summary-value">$0</span>
+              </div>
+              <div class="summary-item system-balance">
+                <span class="summary-label">Saldo del Sistema:</span>
+                <span id="modal-saldo-value" class="summary-value">$0</span>
+              </div>
+            </div>
+            <div class="summary-row difference-row">
+              <div class="summary-item difference">
+                <span class="summary-label">Diferencia:</span>
+                <span id="difference-amount" class="summary-value">$0</span>
+              </div>
+            </div>
+            <div class="difference-explanation">
+              <small id="difference-text">Total Contado - Saldo Sistema = Diferencia</small>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-actions">
@@ -127,4 +273,3 @@
   <script src="js/movimiento.js"></script>
 </body>
 </html>
-

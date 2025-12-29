@@ -3,98 +3,169 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ingresos</title>
+  <title>MegaAdmin - Gestión de Ingresos</title>
   <link rel="stylesheet" href="css/stylesmoving.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
 
   <header class="header">
     <div class="header-content">
-      <h1>Gestión de Ingresos</h1>
-    <a href=/movimientos><button class="btn">Salir</button></a>
-    <a href="/egresos"><button class="btn">Egresos</button></a>
+      <div class="header-left">
+        <div class="logo">
+          <i class="fas fa-plus-circle"></i>
+          <h1>Gestión de Ingresos</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a href="/egresos" class="header-btn btn-secondary">
+          <i class="fas fa-minus-circle"></i>
+          <span>Egresos</span>
+        </a>
+        <a href="/movimientos" class="header-btn btn-primary">
+          <i class="fas fa-home"></i>
+          <span>Salir</span>
+        </a>
+      </div>
     </div>
   </header>
 
   <main class="main-container">
     <!-- Formulario de ingreso -->
     <section class="form-section">
-      <div class="form-grid">
+      <div class="section-header">
+        <h2><i class="fas fa-edit"></i> Registrar Nuevo Ingreso</h2>
+        <p>Complete los campos para agregar un movimiento de ingreso</p>
+      </div>
 
+      <div class="form-grid">
         <div class="form-item">
-          <label>Tipo:</label>
-          <p>Ingresos</p>
+          <label><i class="fas fa-tag"></i> Tipo:</label>
+          <div class="form-display">
+            <span class="badge badge-success">Ingresos</span>
+          </div>
         </div>
 
         <div class="form-item">
-          <label>Movimiento de:</label>
-          <select id="movement_type" name="movement_type">
+          <label><i class="fas fa-exchange-alt"></i> Movimiento de:</label>
+          <select id="movement_type" name="movement_type" class="form-control">
             <option value="Ingreso">Ingreso</option>
           </select>
         </div>
 
         <div class="form-item">
-          <label>Monto:</label>
-          <input type="number" id="amount" name="amount" placeholder="Ingrese el monto">
+          <label><i class="fas fa-dollar-sign"></i> Monto:</label>
+          <input type="number" id="amount" name="amount" placeholder="0.00" class="form-control" step="0.01" min="0">
         </div>
 
         <div class="form-item">
-          <label>Turno:</label>
-          <select id="shift" name="shift">
+          <label><i class="fas fa-clock"></i> Turno:</label>
+          <select id="shift" name="shift" class="form-control">
             <option value="M">Mañana (M)</option>
             <option value="T">Tarde (T)</option>
           </select>
         </div>
 
         <div class="form-item">
-          <label>Concepto:</label>
-          <select id="concept_id" name="concept_id">
+          <label><i class="fas fa-list"></i> Concepto:</label>
+          <select id="concept_id" name="concept_id" class="form-control">
             {{CONCEPT_OPTIONS}}
           </select>
         </div>
 
         <div class="form-item">
-          <label>Movimiento realizado por:</label>
-          <span id="created_by_label">{{CREATED_BY_LABEL}}</span>
-          <input type="text" id="created_by" name="created_by" value="{{CREATED_BY}}">
+          <label><i class="fas fa-user"></i> Movimiento realizado por:</label>
+          <span id="created_by_label" class="form-info">{{CREATED_BY_LABEL}}</span>
+          <input type="text" id="created_by" name="created_by" value="{{CREATED_BY}}" class="form-control" readonly>
         </div>
 
         <div class="form-item form-full">
-          <label>Detalle:</label>
-          <textarea id="details" name="details" placeholder="Detalles del movimiento"></textarea>
+          <label><i class="fas fa-comment"></i> Detalle:</label>
+          <textarea id="details" name="details" placeholder="Detalles adicionales del movimiento..." class="form-control" rows="3"></textarea>
         </div>
       </div>
+
       <div class="actions">
-        <button id="agregarBtn" class="btn">Agregar a la pila</button>
+        <button id="agregarBtn" class="btn btn-success">
+          <i class="fas fa-plus"></i>
+          <span>Agregar a la pila</span>
+        </button>
       </div>
 
-      <!-- Notificación de estado de arco -->
-      <div id="arcoEstadoBox" class="info-box arco-estado" style="display:none;"></div>
-      <button id="abrirArcoBtn" class="btn" style="display:none; margin-top:10px;">Abrir Arco</button>
+      <!-- Estado del arco -->
+      <div class="arco-status-section">
+        <div id="arcoEstadoBox" class="status-card" style="display:none;">
+          <div class="status-icon">
+            <i class="fas fa-info-circle"></i>
+          </div>
+          <div class="status-content">
+            <span class="status-text"></span>
+          </div>
+        </div>
+        <button id="abrirArcoBtn" class="btn btn-warning" style="display:none;">
+          <i class="fas fa-unlock"></i>
+          <span>Abrir Arco</span>
+        </button>
+      </div>
 
       <div class="bottom-info">
-        <div class="info-box">Fecha actual: <span id="fechaActual"></span></div>
-        <div class="info-box">Usuario: <span id="usuarioActual">{{USUARIO_ACTUAL}}</span></div>
+        <div class="info-card">
+          <div class="info-icon">
+            <i class="fas fa-calendar-day"></i>
+          </div>
+          <div class="info-content">
+            <span class="info-label">Fecha actual</span>
+            <span id="fechaActual" class="info-value"></span>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-icon">
+            <i class="fas fa-user-circle"></i>
+          </div>
+          <div class="info-content">
+            <span class="info-label">Usuario</span>
+            <span id="usuarioActual" class="info-value">{{USUARIO_ACTUAL}}</span>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- Pila de movimientos -->
     <aside class="pila-section">
-      <h2>Pila de Movimientos</h2>
+      <div class="section-header">
+        <h2><i class="fas fa-layer-group"></i> Pila de Movimientos</h2>
+        <p>Gestiona los movimientos antes de enviarlos</p>
+      </div>
 
       <form method="POST" action="/ingresos" id="formEnviarMovimientos">
-        <div class="movimiento-box">
-          <h3>Por enviar a la DB</h3>
+        <div class="movimiento-box pending">
+          <div class="box-header">
+            <h3><i class="fas fa-clock"></i> Por enviar a la DB</h3>
+            <div class="box-badge">
+              <span id="pendingCount">0</span>
+            </div>
+          </div>
           <div id="movimientosPendientes" class="movimientos-container">
-            <!-- Movimientos pendientes -->
+            <div class="empty-state">
+              <i class="fas fa-inbox"></i>
+              <p>No hay movimientos pendientes</p>
+            </div>
           </div>
           <input type="hidden" name="movimientos" id="inputMovimientos">
-          <button class="btn enviar-db" type="submit">Enviar a la DB</button>
+          <button class="btn btn-primary enviar-db" type="submit">
+            <i class="fas fa-paper-plane"></i>
+            <span>Enviar a la DB</span>
+          </button>
         </div>
       </form>
 
-      <div class="movimiento-box">
-        <h3>Movimientos en la DB</h3>
+      <div class="movimiento-box saved">
+        <div class="box-header">
+          <h3><i class="fas fa-database"></i> Movimientos en la DB</h3>
+          <div class="box-badge success">
+            <i class="fas fa-check"></i>
+          </div>
+        </div>
         <div id="movimientosAgregados" class="movimientos-container">
           {{MOVIMIENTOS_ULTIMO_ARCO}}
         </div>
@@ -105,13 +176,14 @@
 
   <script src="/js/ingresos.js"></script>
   <noscript>
-    <div class="info-box error" style="margin: 2em; color: #b71c1c; background: #fff3ff; border: 1px solid #b71c1c; padding: 1em;">
-      ⚠️ Esta página requiere JavaScript para funcionar correctamente. Por favor, habilite JavaScript en su navegador.<br>
-      Si no puede, comuníquese con el administrador para registrar movimientos manualmente.
+    <div class="noscript-warning">
+      <div class="warning-content">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h3>JavaScript Requerido</h3>
+        <p>Esta página requiere JavaScript para funcionar correctamente. Por favor, habilite JavaScript en su navegador.</p>
+        <p>Si no puede, comuníquese con el administrador para registrar movimientos manualmente.</p>
+      </div>
     </div>
-  </noscript>
-  <noscript>
-    <div class="info-box error">Esta página requiere JavaScript para funcionar correctamente.</div>
   </noscript>
 
 </body>

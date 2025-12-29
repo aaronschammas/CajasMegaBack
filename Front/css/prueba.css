@@ -1,0 +1,424 @@
+/* Modal base */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.modal.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Estilos específicos para el modal de conteo de billetes */
+.bill-counting-modal {
+  max-width: 700px;
+  width: 90vw;
+}
+
+.modal-header {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: white;
+  padding: 1.5rem 2rem;
+  border-radius: 1rem 1rem 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.modal-header i {
+  font-size: 1.5rem;
+}
+
+.modal-body {
+  padding: 2rem;
+}
+
+.bill-counting-section h4 {
+  color: #2563eb;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.instruction-text {
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.bill-calculator {
+  background: #f9fafb;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 2px solid #e5e7eb;
+}
+
+.bill-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: white;
+  border-radius: 0.5rem;
+  margin-bottom: 0.75rem;
+  border: 2px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.bill-row:hover {
+  border-color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+.bill-row:last-child {
+  margin-bottom: 0;
+}
+
+.resto-row {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.resto-row:hover {
+  border-color: #d97706;
+}
+
+.bill-denomination {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 140px;
+}
+
+.bill-denomination i {
+  color: #10b981;
+  font-size: 1.25rem;
+}
+
+.resto-row .bill-denomination i {
+  color: #f59e0b;
+}
+
+.bill-value {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #1f2937;
+}
+
+.bill-denomination small {
+  color: #6b7280;
+  font-size: 0.8rem;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.bill-counter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.counter-btn {
+  width: 36px;
+  height: 36px;
+  border: 2px solid #e5e7eb;
+  background: white;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #6b7280;
+}
+
+.counter-btn:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.counter-btn:active {
+  transform: scale(0.95);
+}
+
+.bill-quantity {
+  width: 80px;
+  height: 36px;
+  text-align: center;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  font-size: 1rem;
+  background: white;
+}
+
+.resto-input {
+  width: 100px;
+}
+
+.bill-quantity:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.bill-total {
+  min-width: 100px;
+  text-align: right;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #10b981;
+  font-family: "Courier New", monospace;
+}
+
+/* Cálculo visual */
+.calculation-display {
+  background: #f3f4f6;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 2px solid #e5e7eb;
+}
+
+.calculation-display h5 {
+  color: #374151;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+}
+
+.formula {
+  font-family: "Courier New", monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  background: white;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+/* Resumen final */
+.final-summary {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  border: 2px solid #2563eb;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.summary-row:last-child {
+  margin-bottom: 0;
+}
+
+.difference-row {
+  border-top: 2px solid #2563eb;
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: center;
+}
+
+.summary-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.summary-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: "Courier New", monospace;
+}
+
+.summary-value.positive {
+  color: #10b981;
+}
+
+.summary-value.negative {
+  color: #ef4444;
+}
+
+.summary-value.neutral {
+  color: #6b7280;
+}
+
+.difference-explanation {
+  text-align: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #cbd5e1;
+}
+
+.difference-explanation small {
+  color: #6b7280;
+  font-family: "Courier New", monospace;
+  font-size: 0.875rem;
+}
+
+/* Botones del modal */
+.modal-actions {
+  padding: 1.5rem 2rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.btn-modal {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.btn-cancel:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.btn-confirm {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
+.btn-confirm:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .bill-counting-modal {
+    width: 95vw;
+    margin: 1rem;
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+  }
+
+  .bill-row {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .bill-denomination {
+    min-width: auto;
+    justify-content: center;
+  }
+
+  .summary-row {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .summary-item {
+    text-align: center;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .formula {
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .bill-counting-modal {
+    width: 98vw;
+    margin: 0.5rem;
+  }
+
+  .modal-header {
+    padding: 1rem 1.5rem;
+  }
+
+  .modal-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .bill-calculator {
+    padding: 1rem;
+  }
+
+  .bill-row {
+    padding: 0.75rem;
+  }
+
+  .bill-counter {
+    gap: 0.25rem;
+  }
+
+  .counter-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .bill-quantity {
+    width: 70px;
+    height: 32px;
+    font-size: 0.875rem;
+  }
+
+  .summary-value {
+    font-size: 1.25rem;
+  }
+}

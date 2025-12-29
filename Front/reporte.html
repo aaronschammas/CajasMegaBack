@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/reporte.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>MegaAdmin - Informes y Reportes</title>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-chart-bar"></i>
+                    <h1>Informes y Reportes</h1>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="/movimientos" class="header-btn btn-primary">
+                    <i class="fas fa-home"></i>
+                    <span>Volver al Dashboard</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- Título Principal -->
+        <div class="page-header">
+            <div class="page-title">
+                <i class="fas fa-file-alt"></i>
+                <div>
+                    <h2>Informe Diario - Movimientos del Último Arco</h2>
+                    <p>Análisis detallado de los movimientos registrados</p>
+                </div>
+            </div>
+            <div class="page-actions">
+                <button class="btn btn-secondary" onclick="window.print()">
+                    <i class="fas fa-print"></i>
+                    <span>Imprimir</span>
+                </button>
+                <div class="export-dropdown">
+                    <button class="btn btn-success" id="exportDropdownBtn">
+                        <i class="fas fa-download"></i>
+                        <span>Exportar</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="export-menu" id="exportMenu">
+                        <button class="export-option" id="exportPDF">
+                            <i class="fas fa-file-pdf"></i>
+                            <span>Exportar PDF</span>
+                        </button>
+                        <button class="export-option" id="exportExcel">
+                            <i class="fas fa-file-excel"></i>
+                            <span>Exportar Excel</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Información del Arco -->
+        <div class="info-section">
+            <div class="section-header">
+                <h3><i class="fas fa-info-circle"></i> Información del Arco</h3>
+            </div>
+            <div id="infoArco" class="arco-info-card">
+    {{if .Arco}}
+    <div class="arco-info-grid">
+        <div class="info-item">
+            <div class="info-label">
+                <i class="fas fa-hashtag"></i>
+                ID del Arco
+            </div>
+            <div class="info-value">{{.Arco.ID}}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">
+                <i class="fas fa-clock"></i>
+                Turno
+            </div>
+            <div class="info-value">{{if eq .Arco.Turno "M"}}Mañana{{else}}Tarde{{end}}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">
+                <i class="fas fa-calendar-alt"></i>
+                Fecha Apertura
+            </div>
+            <div class="info-value">{{.Arco.FechaApertura}}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">
+                <i class="fas fa-calendar-check"></i>
+                Fecha Cierre
+            </div>
+            <div class="info-value">{{if .Arco.FechaCierre}}{{.Arco.FechaCierre}}{{else}}Abierto{{end}}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">
+                <i class="fas fa-user"></i>
+                Usuario
+            </div>
+            <div class="info-value">{{.Arco.Usuario.FullName}}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">
+                <i class="{{if .Arco.FechaCierre}}fas fa-lock{{else}}fas fa-unlock{{end}}"></i>
+                Estado
+            </div>
+            <div class="status-badge {{if .Arco.FechaCierre}}closed{{else}}open{{end}}">
+                <i class="{{if .Arco.FechaCierre}}fas fa-lock{{else}}fas fa-unlock{{end}}"></i>
+                {{if .Arco.FechaCierre}}Cerrado{{else}}Abierto{{end}}
+            </div>
+        </div>
+    </div>
+    {{else}}
+    <div class="error-state">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>No se encontró el último arco.</span>
+    </div>
+    {{end}}
+</div>
+        </div>
+
+        <!-- Resumen Financiero -->
+        <div class="summary-section">
+            <div class="section-header">
+                <h3><i class="fas fa-calculator"></i> Resumen Financiero</h3>
+            </div>
+            <div id="conclusionesContainer" class="summary-cards">
+            </div>
+        </div>
+
+        <!-- Gráfico de Tortas
+        <div class="chart-section">
+            <div class="section-header">
+                <h3><i class="fas fa-chart-pie"></i> Distribución de Movimientos</h3>
+            </div>
+            <div class="chart-container">
+                <canvas id="movementsChart"></canvas>
+            </div>
+        </div>  -->
+
+        <!-- Tabla de Movimientos -->
+        <div class="table-section">
+            <div class="section-header">
+                <h3><i class="fas fa-table"></i> Detalle de Movimientos</h3>
+                <div class="table-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Buscar en movimientos...">
+                    </div>
+                    <div class="filter-controls">
+                        <select id="filterType" class="filter-select">
+                            <option value="">Todos los tipos</option>
+                            <option value="Ingreso">Ingresos</option>
+                            <option value="Egreso">Egresos</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="table-container">
+                <div id="tablaMovimientos" class="table-wrapper">
+    {{if .Movimientos}}
+    <table class="tabla-movimientos">
+        <thead>
+            <tr>
+                <th class="col-id">ID</th>
+                <th class="col-fecha">Fecha y Hora</th>
+                <th class="col-tipo">Tipo</th>
+                <th class="col-concepto">Concepto</th>
+                <th class="col-monto">Monto</th>
+                <th class="col-usuario">Usuario</th>
+                <th class="col-detalle">Detalles</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Movimientos}}
+            <tr>
+                <td class="col-id">{{.MovementID}}</td>
+                <td class="col-fecha">{{.MovementDate}}</td>
+                <td class="col-tipo">
+                    <span class="{{if eq .MovementType "Ingreso"}}tipo-ingreso{{else}}tipo-egreso{{end}}">
+                        {{.MovementType}}
+                    </span>
+                </td>
+                <td class="col-concepto">{{if .Concept.ConceptName}}{{.Concept.ConceptName}}{{else}}Sin concepto{{end}}</td>
+                <td class="col-monto {{if eq .MovementType "Ingreso"}}monto-positivo{{else}}monto-negativo{{end}}">
+                    {{if eq .MovementType "Ingreso"}}+{{else}}-{{end}}${{.Amount}}
+                </td>
+                <td class="col-usuario">{{if .Creator.FullName}}{{.Creator.FullName}}{{else}}No especificado{{end}}</td>
+                <td class="col-detalle">{{if .Details}}{{.Details}}{{else}}Sin detalles{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty-state">
+        <i class="fas fa-inbox"></i>
+        <p>No hay movimientos para mostrar.</p>
+    </div>
+    {{end}}
+</div>
+            </div>
+        </div>
+
+        <!-- Formulario de Filtros Avanzados (oculto por defecto) -->
+        <div class="filters-section" id="filtersSection" style="display: none;">
+            <div class="section-header">
+                <h3><i class="fas fa-filter"></i> Filtros Avanzados</h3>
+                <button class="btn btn-ghost" id="toggleFilters">
+                    <i class="fas fa-times"></i>
+                    <span>Cerrar</span>
+                </button>
+            </div>
+            <form id="formGraficos" class="filters-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fecha_Desde">
+                            <i class="fas fa-calendar-alt"></i>
+                            Fecha Desde
+                        </label>
+                        <input type="date" id="fecha_Desde" name="fecha_Desde" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="fecha_hasta">
+                            <i class="fas fa-calendar-alt"></i>
+                            Fecha Hasta
+                        </label>
+                        <input type="date" id="fecha_hasta" name="fecha_hasta" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="tipo">
+                            <i class="fas fa-tag"></i>
+                            Tipo
+                        </label>
+                        <select id="tipo" name="tipo" class="form-control">
+                            <option value="">Todos</option>
+                            <option value="Ingreso">Ingreso</option>
+                            <option value="Egreso">Egreso</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="turno">
+                            <i class="fas fa-clock"></i>
+                            Turno
+                        </label>
+                        <select id="turno" name="turno" class="form-control">
+                            <option value="">Todos</option>
+                            <option value="M">Mañana</option>
+                            <option value="T">Tarde</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="arco_id">
+                            <i class="fas fa-hashtag"></i>
+                            ID Arco
+                        </label>
+                        <input type="number" id="arco_id" name="arco_id" class="form-control" placeholder="ID del arco">
+                    </div>
+                    <div class="form-group">
+                        <label for="monto_Minimo">
+                            <i class="fas fa-dollar-sign"></i>
+                            Monto Mínimo
+                        </label>
+                        <input type="number" id="monto_Minimo" name="monto_Minimo" class="form-control" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="monto_Maximo">
+                            <i class="fas fa-dollar-sign"></i>
+                            Monto Máximo
+                        </label>
+                        <input type="number" id="monto_Maximo" name="monto_Maximo" class="form-control" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="balance_negativo" name="balance_negativo">
+                            <span class="checkmark"></span>
+                            Solo balance negativo
+                        </label>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i>
+                        <span>Aplicar Filtros</span>
+                    </button>
+                    <button type="reset" class="btn btn-secondary">
+                        <i class="fas fa-undo"></i>
+                        <span>Limpiar</span>
+                    </button>
+                </div>
+            </form>
+            <div id="tablaContainer" class="filtered-results"></div>
+        </div>
+
+        <!-- Botón para mostrar filtros -->
+        <div class="floating-actions">
+            <button class="fab" id="showFiltersBtn" title="Filtros Avanzados">
+                <i class="fas fa-filter"></i>
+            </button>
+        </div>
+    </main>
+
+    <!-- Scripts para exportación -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="js/reporte.js"></script>
+</body>
+</html>

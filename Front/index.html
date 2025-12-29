@@ -3,37 +3,116 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login</title>
-  <link rel="stylesheet" href="/css/styles.css">
+  <title>CajasFuerte - Iniciar Sesión</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="container">
-    <div class="login-box">
+  <div class="login-container">
+    <div class="login-wrapper">
+      <!-- Sección del Formulario -->
       <div class="form-section">
-        <h2>Logo Here</h2>
-        <h1>Login</h1>
-        <form id="loginForm" method="POST" action="/api/login">
-          <label for="email">Email</label>
-          <input type="text" id="email" name="email" placeholder="usuario" required>
+        <div class="form-content">
+          <!-- Logo y Encabezado -->
+          <div class="header-section">
+            <div class="logo">
+              <i class="fas fa-shield-alt"></i>
+              <span>CajasFuerte</span>
+            </div>
+            <h1>Bienvenido de vuelta</h1>
+            <p class="subtitle">Ingresa tus credenciales para acceder a tu cuenta</p>
+          </div>
 
-          <label for="password">Password <a href="#" class="forgot">Forgot Password?</a></label>
-          <input type="password" id="password" name="password" placeholder="**********" required>
-          <button type="submit" class="login-btn">LOGIN →</button>
-        </form>
-        <p class="continue">or continue with</p>
-        <div class="social-buttons">
-          <button class="social google">G</button>
-          <button class="social apple"></button>
-          <button class="social facebook">f</button>
+          <!-- Formulario de Login -->
+          <form id="loginForm" method="POST" action="/api/login" class="login-form">
+            <div class="form-group">
+              <label for="email">Correo electrónico</label>
+              <div class="input-wrapper">
+                <i class="fas fa-envelope input-icon"></i>
+                <input 
+                  type="email" 
+                  id="email" 
+                  name="email" 
+                  placeholder="usuario@ejemplo.com" 
+                  required
+                  autocomplete="email"
+                >
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="password">
+                Contraseña
+                <a href="#" class="forgot-link">¿Olvidaste tu contraseña?</a>
+              </label>
+              <div class="input-wrapper">
+                <i class="fas fa-lock input-icon"></i>
+                <input 
+                  type="password" 
+                  id="password" 
+                  name="password" 
+                  placeholder="••••••••••" 
+                  required
+                  autocomplete="current-password"
+                >
+              </div>
+            </div>
+
+            <div class="form-options">
+              <label class="checkbox-wrapper">
+                <input type="checkbox" id="remember" name="remember">
+                <span class="checkmark"></span>
+                Recordarme
+              </label>
+            </div>
+
+            <button type="submit" class="login-btn">
+              <span>Iniciar Sesión</span>
+              <i class="fas fa-arrow-right"></i>
+            </button>
+          </form>
+
+          <!-- Divisor -->
+          <div class="divider">
+            <span>o continúa con</span>
+          </div>
+
+          <!-- Login Social -->
+          <div class="social-login">
+            <button type="button" class="social-btn google-btn">
+              <i class="fab fa-google"></i>
+              <span>Google</span>
+            </button>
+            <button type="button" class="social-btn apple-btn">
+              <i class="fab fa-apple"></i>
+              <span>Apple</span>
+            </button>
+            <button type="button" class="social-btn facebook-btn">
+              <i class="fab fa-facebook-f"></i>
+              <span>Facebook</span>
+            </button>
+          </div>
+
+          <!-- Pie del formulario -->
+          <div class="form-footer">
+            <p>¿No tienes una cuenta? <a href="#" class="signup-link">Regístrate aquí</a></p>
+          </div>
         </div>
-
       </div>
+
+      <!-- Sección de Imagen/Ilustración -->
       <div class="image-section">
-        <!-- Aquí puedes colocar una imagen o ilustración animada -->
-        <p>Espacio para la imagen 📸</p>
+        <div class="image-content">
+          <div class="illustration">
+            <div class="security-icon">
+              <i class="fas fa-shield-alt"></i>
+            </div>
+            <h2>Nose que poner aqui pero queda fachero un h2 asi que lo dejo en una de esas se me ocure algo mejor</h2>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </body>
-<script src="/js/egresos.js"></script>
 </html>

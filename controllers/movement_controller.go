@@ -1,11 +1,13 @@
+// GET /api/movimientos/arco/:arco_id
 package controllers
 
 import (
 	"caja-fuerte/models"   //
 	"caja-fuerte/services" //
 	"encoding/json"        //
-	"fmt"                  //
-	"net/http"             //
+	"errors"
+	"fmt"      //
+	"net/http" //
 	"os"
 	"strconv" //
 	"strings"
@@ -18,6 +20,41 @@ type MovementController struct { //
 	movementService *services.MovementService //
 }
 
+// GET /api/movimientos/arco/:arco_id
+func (c *MovementController) GetMovementsByArcoID(ctx *gin.Context) {
+	arcoIDStr := ctx.Param("arco_id")
+	arcoID, err := strconv.ParseUint(arcoIDStr, 10, 64)
+	if err != nil || arcoID == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "arco_id inválido"})
+		return
+	}
+	movements, err := c.movementService.GetMovementsByArcoID(uint(arcoID))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"movements": movements})
+}
+
+// DELETE /api/movimientos/:movement_id
+func (c *MovementController) DeleteMovement(ctx *gin.Context) {
+	idStr := ctx.Param("movement_id")
+	id64, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil || id64 == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "movement_id inválido"})
+		return
+	}
+	userID := ctx.GetUint("user_id")
+	if userID == 0 {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Usuario no autenticado"})
+		return
+	}
+	if err := c.movementService.SoftDeleteMovement(uint(id64), userID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "Movimiento eliminado"})
+}
 func NewMovementController() *MovementController { //
 	return &MovementController{ //
 		movementService: services.NewMovementService(), //
@@ -29,10 +66,24 @@ func (c *MovementController) CreateBatch(ctx *gin.Context) { //
 
 	// Permitir recibir tanto JSON (API) como formulario (desde HTML)
 	if ctx.ContentType() == "application/json" {
-		if err := ctx.ShouldBindJSON(&req); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		// Leer el body una sola vez y deserializar a batch o a single
+		raw, err := ctx.GetRawData()
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "No se pudo leer el cuerpo de la petición"})
 			return
 		}
+		// Intentar deserializar a BatchMovementRequest
+		if err := json.Unmarshal(raw, &req); err != nil || len(req.Movements) == 0 {
+			// Intentar deserializar a MovementRequest individual
+			var single models.MovementRequest
+			if err2 := json.Unmarshal(raw, &single); err2 != nil {
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": "Payload inválido: " + err.Error()})
+				return
+			}
+			req.Movements = []models.MovementRequest{single}
+		}
+		// Re-enable the request body for other middlewares/handlers if needed
+		// (Gin already consumed it; subsequent ShouldBind won't work.)
 	} else {
 		// Recibe desde formulario: el campo 'movimientos' es un string JSON
 		movimientosStr := ctx.PostForm("movimientos")
@@ -52,7 +103,33 @@ func (c *MovementController) CreateBatch(ctx *gin.Context) { //
 		}
 	}
 
+	// Ensure CreatedBy is set from authenticated user for security
+	userID := ctx.GetUint("user_id")
+	for i := range req.Movements {
+		if req.Movements[i].CreatedBy == 0 {
+			req.Movements[i].CreatedBy = userID
+		}
+	}
+
 	if err := c.movementService.CreateBatchMovements(req.Movements); err != nil {
+		// Manejo detallado de errores según los sentinels del servicio
+		if errors.Is(err, services.ErrNoOpenArco) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "No hay un arco abierto para este turno. Debe abrir el arco antes de crear movimientos."})
+			return
+		}
+		if errors.Is(err, services.ErrValidation) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, services.ErrFKConstraint) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Error de integridad referencial: " + err.Error()})
+			return
+		}
+		if errors.Is(err, services.ErrCreateMovement) {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al crear movimiento: " + err.Error()})
+			return
+		}
+		// Fallback: error genérico
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

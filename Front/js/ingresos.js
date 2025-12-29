@@ -123,7 +123,22 @@ if (formEnviar) {
       return;
     }
     inputMovimientos.value = JSON.stringify(pilaMovimientos);
-    formEnviar.submit();
+    // Enviar por AJAX y redirigir si éxito
+    try {
+      const res = await fetch(formEnviar.action, {
+        method: formEnviar.method,
+        body: new FormData(formEnviar),
+        credentials: 'include'
+      });
+      if (res.ok) {
+        window.location.href = '/movimientos';
+      } else {
+        const result = await res.json();
+        alert(result.error || 'Error al agregar movimientos');
+      }
+    } catch (err) {
+      alert('Error de red al agregar movimientos');
+    }
   });
 }
 
@@ -327,4 +342,73 @@ function actualizarUIEstadoArco() {
 document.addEventListener('DOMContentLoaded', async function() {
   await obtenerEstadoArco();
   actualizarUIEstadoArco();
+});
+
+// Cargar movimientos del último arco y mostrarlos en la sección "Movimientos en la DB"
+async function loadMovimientosUltimoArco() {
+  try {
+    const res = await fetch('/api/arco-estado', { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    const arco = data.arco
+    const container = document.getElementById('movimientosAgregados');
+    if (!container) return;
+    if (!arco || !arco.id) {
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No hay movimientos registrados</p></div>';
+      return;
+    }
+    const movRes = await fetch(`/api/movimientos/arco/${arco.id}`, { credentials: 'include' });
+    if (!movRes.ok) {
+      container.innerHTML = '<div style="color:red;">Error al cargar movimientos</div>';
+      return;
+    }
+    const movData = await movRes.json();
+    if (!Array.isArray(movData.movements) || movData.movements.length === 0) {
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No hay movimientos en el último arco.</p></div>';
+      return;
+    }
+    // Renderizar movimientos (filtrar solo Ingresos si se desea)
+    container.innerHTML = movData.movements
+      .filter(m => m.movement_type === 'Ingreso')
+      .map(m => {
+          const date = m.movement_date ? new Date(m.movement_date).toLocaleString() : '';
+          return `
+            <div class="movimiento-list" data-id="${m.movement_id}" style="border-bottom:1px solid #eee;padding:6px 0;position:relative;">
+              <button class="delete-mov" title="Eliminar" style="position:absolute;right:8px;top:8px;border:none;background:transparent;color:#e11d48;font-size:1.1rem;cursor:pointer;">×</button>
+              <b>${m.movement_type}</b> | ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(m.amount)}<br>
+              <small style="color:#666">${date} — ${m.details || ''}</small>
+            </div>
+          `
+        }).join('')
+  } catch (e) {
+    const container = document.getElementById('movimientosAgregados');
+    if (container) container.innerHTML = '<div style="color:red;">Error al cargar movimientos</div>';
+  }
+}
+
+// Llamar al cargar la página para rellenar la sección
+document.addEventListener('DOMContentLoaded', function() {
+  loadMovimientosUltimoArco();
+});
+
+// Delegación para manejar eliminación de movimientos listados
+document.addEventListener('click', async function(e) {
+  if (e.target && e.target.classList && e.target.classList.contains('delete-mov')) {
+    const card = e.target.closest('.movimiento-list');
+    if (!card) return;
+    const id = card.dataset.id;
+    if (!id) return;
+    if (!confirm('Confirmar eliminación del movimiento?')) return;
+    try {
+      const res = await fetch(`/api/movimientos/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (res.ok) {
+        card.remove();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Error al eliminar movimiento');
+      }
+    } catch (err) {
+      alert('Error de red al eliminar movimiento');
+    }
+  }
 });

@@ -28,9 +28,10 @@ type User struct {
 
 // ConceptType representa los tipos de conceptos
 type ConceptType struct {
-	ConceptID               uint      `gorm:"primaryKey;autoIncrement" json:"concept_id"`
-	ConceptName             string    `gorm:"not null;unique" json:"concept_name"`
-	MovementTypeAssociation string    `gorm:"type:enum('Ingreso','Egreso','Ambos');not null" json:"movement_type_association"`
+	ConceptID   uint   `gorm:"primaryKey;autoIncrement" json:"concept_id"`
+	ConceptName string `gorm:"not null;unique" json:"concept_name"`
+	// Ahora soporta: Ingreso, Egreso, RetiroCaja, Ambos
+	MovementTypeAssociation string    `gorm:"type:enum('Ingreso','Egreso','RetiroCaja','Ambos');not null" json:"movement_type_association"`
 	IsActive                bool      `gorm:"default:true" json:"is_active"`
 	CreatedBy               *uint     `json:"created_by"`
 	CreatedAt               time.Time `json:"created_at"`
@@ -41,13 +42,14 @@ type ConceptType struct {
 
 // Movement representa los movimientos base
 type Movement struct {
-	MovementID   uint           `gorm:"primaryKey;autoIncrement" json:"movement_id"`
-	ReferenceID  string         `gorm:"not null;unique" json:"reference_id"`
-	MovementType string         `gorm:"type:enum('Ingreso','Egreso');not null" json:"movement_type"`
+	MovementID  uint   `gorm:"primaryKey;autoIncrement" json:"movement_id"`
+	ReferenceID string `gorm:"not null;unique" json:"reference_id"`
+	// Ahora soporta: Ingreso, Egreso, RetiroCaja
+	MovementType string         `gorm:"type:enum('Ingreso','Egreso','RetiroCaja');not null" json:"movement_type"`
 	MovementDate time.Time      `gorm:"not null" json:"movement_date"`
 	Amount       float64        `gorm:"type:decimal(15,2);not null" json:"amount"`
 	Shift        string         `gorm:"type:enum('M','T');not null" json:"shift"`
-	ConceptID    uint           `gorm:"not null" json:"concept_id"`
+	ConceptID    uint           `json:"concept_id"`
 	Details      string         `json:"details"`
 	CreatedBy    uint           `gorm:"not null" json:"created_by"`
 	CreatedAt    time.Time      `json:"created_at"`
@@ -97,6 +99,8 @@ type Arco struct {
 	Turno         string     `gorm:"type:enum('M','T');not null" json:"turno"`
 	Activo        bool       `gorm:"default:true" json:"activo"`
 	Fecha         time.Time  `gorm:"not null" json:"fecha"`
+	SaldoInicial  float64    `gorm:"type:decimal(15,2);default:0" json:"saldo_inicial"` // Saldo con el que comienza el arco
+	SaldoFinal    float64    `gorm:"type:decimal(15,2);default:0" json:"saldo_final"`   // Saldo con el que termina el arco
 	Usuario       User       `gorm:"foreignKey:CreatedBy" json:"usuario,omitempty"`
 	Movimientos   []Movement `gorm:"foreignKey:ArcoID" json:"movimientos,omitempty"`
 }
@@ -108,14 +112,29 @@ type LoginRequest struct {
 }
 
 type MovementRequest struct {
-	MovementType string  `json:"movement_type" binding:"required,oneof=Ingreso Egreso"`
+	// Ahora soporta: Ingreso, Egreso, RetiroCaja
+	MovementType string  `json:"movement_type" binding:"required,oneof=Ingreso Egreso RetiroCaja"`
 	Amount       float64 `json:"amount" binding:"required,gt=0"`
 	Shift        string  `json:"shift" binding:"required,oneof=M T"`
-	ConceptID    uint    `json:"concept_id" binding:"required"`
+	ConceptID    uint    `json:"concept_id"`
 	Details      string  `json:"details"`
-	CreatedBy    uint    `json:"created_by" binding:"required"`
+	// CreatedBy is populated server-side; not required from the client
+	CreatedBy uint `json:"created_by"`
 }
 
 type BatchMovementRequest struct {
 	Movements []MovementRequest `json:"movements" binding:"required,dive"`
+}
+
+// VistaSaldoArqueo representa la vista de saldo de arqueos.
+// Es un modelo de solo lectura para los resultados de la vista 'vista_saldo_arqueos'.
+type VistaSaldoArqueo struct {
+	ArqueoID      uint       `gorm:"column:arqueo_id" json:"arqueo_id"`
+	FechaApertura *time.Time `gorm:"column:fecha_apertura" json:"fecha_apertura"`
+	FechaCierre   *time.Time `gorm:"column:fecha_cierre" json:"fecha_cierre"`
+	Turno         string     `gorm:"column:turno" json:"turno"`
+	Activo        bool       `gorm:"column:activo" json:"activo"`
+	TotalIngresos float64    `gorm:"column:total_ingresos" json:"total_ingresos"`
+	TotalEgresos  float64    `gorm:"column:total_egresos" json:"total_egresos"`
+	SaldoTotal    float64    `gorm:"column:saldo_total" json:"saldo_total"`
 }

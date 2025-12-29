@@ -4,7 +4,6 @@ import (
 	"caja-fuerte/models"
 	"fmt"
 	"log"
-	"time"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -12,10 +11,35 @@ import (
 
 var DB *gorm.DB
 
-func InitDB() { //crea una DB que se llame "fuerte_caja" en MySQL
-	dsn := "root:@tcp(127.0.0.1:3306)/fuerte_caja?charset=utf8mb4&parseTime=True&loc=Local"
+func InitDB() { //crea una DB que se llame "fuerte_caja" ta muy feo esto viejo cambialo en algun momento
+	// DSN para conectarse al servidor (sin seleccionar una base)
+	serverDSN := "root:12345@tcp(127.0.0.1:3306)/?charset=utf8mb4&parseTime=True&loc=Local"
+	// Nombre de la base que queremos usar/crear
+	dbName := "fuerte_caja"
 
-	var err error
+	// Abrir conexión al servidor para comprobar si la base existe
+	serverDB, err := gorm.Open(mysql.Open(serverDSN), &gorm.Config{})
+	if err != nil {
+		log.Fatal("Error al conectar con el servidor de base de datos:", err)
+	}
+
+	// Verificar existencia de la base de datos
+	exists, err := isDatabasePresent(serverDB, dbName)
+	if err != nil {
+		log.Fatal("Error al comprobar existencia de la base datos:", err)
+	}
+	if !exists {
+		// Crear la base de datos si no existe
+		createStmt := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;", dbName)
+		if err := serverDB.Exec(createStmt).Error; err != nil {
+			log.Fatal("Error al crear la base de datos:", err)
+		}
+		log.Printf("Base de datos '%s' creada (si no existía).\n", dbName)
+	}
+
+	// Ahora conectamos a la base de datos específica
+	dsn := fmt.Sprintf("root:12345@tcp(127.0.0.1:3306)/%s?charset=utf8mb4&parseTime=True&loc=Local", dbName)
+
 	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Error al conectar con la base de datos:", err)
@@ -26,7 +50,7 @@ func InitDB() { //crea una DB que se llame "fuerte_caja" en MySQL
 		&models.Role{},
 		&models.User{},
 		&models.ConceptType{},
-		&models.Arco{}, // NUEVO: migración de la tabla Arco
+		&models.Arco{},
 		&models.Movement{},
 		&models.SpecificIncome{},
 		&models.SpecificExpense{},
@@ -35,123 +59,78 @@ func InitDB() { //crea una DB que se llame "fuerte_caja" en MySQL
 		log.Fatal("Error en la migración:", err)
 	}
 
+	// Creación/Actualización de VISTAS
+	vistaSQL := `
+			CREATE OR REPLACE VIEW vista_saldo_arqueos AS
+			SELECT
+				a.id AS arqueo_id,
+				a.fecha_apertura,
+				a.fecha_cierre,
+				a.turno,
+				a.activo,
+				a.saldo_inicial,
+				COALESCE(SUM(CASE WHEN m.movement_type = 'Ingreso' THEN m.amount ELSE 0 END), 0) AS total_ingresos,
+				COALESCE(SUM(CASE WHEN m.movement_type = 'Egreso' THEN m.amount ELSE 0 END), 0) AS total_egresos,
+				COALESCE(SUM(CASE WHEN m.movement_type = 'RetiroCaja' THEN m.amount ELSE 0 END), 0) AS total_retiros,
+				-- Nuevo comportamiento: mostrar el total del arco como ingresos - egresos
+				COALESCE(SUM(CASE WHEN m.movement_type = 'Ingreso' THEN m.amount ELSE 0 END), 0)
+				- COALESCE(SUM(CASE WHEN m.movement_type = 'Egreso' THEN m.amount ELSE 0 END), 0)
+				AS saldo_total
+			FROM
+				arcos a
+			LEFT JOIN
+				movements m ON m.arco_id = a.id AND m.deleted_at IS NULL
+			GROUP BY
+				a.id, a.fecha_apertura, a.fecha_cierre, a.turno, a.activo, a.saldo_inicial;`
+	if err := DB.Exec(vistaSQL).Error; err != nil {
+		log.Fatal("Error al crear la vista de saldo de arqueos:", err)
+	}
+
 	// Datos iniciales
 	seedData()
 
 	fmt.Println("Base de datos inicializada correctamente")
 }
 
-func seedData() {
-	// Si ya existen movimientos, no volver a seedear datos masivos
-	var movCount int64
-	DB.Model(&models.Movement{}).Count(&movCount)
-	if movCount > 0 {
-		log.Println("La base de datos ya tiene datos, se omite el seed masivo.")
-		return
+// isDatabasePresent revisa si el schema (base de datos) existe en el servidor MySQL.
+// Recibe una conexión GORM abierta al servidor (sin seleccionar una base) y el nombre del schema.
+func isDatabasePresent(serverDB *gorm.DB, dbName string) (bool, error) {
+	var count int64
+	// Consultamos INFORMATION_SCHEMA.SCHEMATA
+	if err := serverDB.Raw("SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?", dbName).Scan(&count).Error; err != nil {
+		return false, err
 	}
+	return count > 0, nil
+}
 
+func seedData() {
+	// Crear roles
 	adminRole := models.Role{RoleName: "Administrador General"}
 	DB.FirstOrCreate(&adminRole, models.Role{RoleName: "Administrador General"})
 
-	userRole := models.Role{RoleName: "Usuario Normal"}
-	DB.FirstOrCreate(&userRole, models.Role{RoleName: "Usuario Normal"})
-
-	if adminRole.RoleID == 0 {
-		log.Println("ADVERTENCIA: No se pudo crear o encontrar el rol de administrador. Deteniendo el seeding de usuarios y conceptos.")
-		return
-	}
-
-	// La contraseña es "password"
+	// Crear un usuario de prueba
 	adminUser := models.User{
-		Email:        "admin@megacajas.com", //usuario por defecto para pruebas que se crea en la DB
-		PasswordHash: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+		Email:        "admin@megacajas.com",
+		PasswordHash: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // "password"
 		FullName:     "Administrador",
-		RoleID:       adminRole.RoleID, // Se usa el ID que GORM ya populó
+		RoleID:       adminRole.RoleID,
 		IsActive:     true,
 	}
-	// Usamos FirstOrCreate para evitar duplicados en ejecuciones posteriores
-	result := DB.FirstOrCreate(&adminUser, models.User{Email: "admin@megacajas.com"})
+	DB.FirstOrCreate(&adminUser, models.User{Email: adminUser.Email})
 
-	// 3. Crear conceptos iniciales usando el UserID del administrador
-	// Solo continuamos si el usuario fue recién creado, para evitar añadir conceptos repetidamente.
-	if result.RowsAffected > 0 {
-		var adminUserIDToSeed *uint
-		if adminUser.UserID != 0 {
-			adminUserIDToSeed = &adminUser.UserID
-		}
-
-		concepts := []models.ConceptType{
-			{ConceptName: "Venta al contado", MovementTypeAssociation: "Ingreso", IsActive: true, CreatedBy: adminUserIDToSeed},
-			{ConceptName: "Pago alquiler", MovementTypeAssociation: "Egreso", IsActive: true, CreatedBy: adminUserIDToSeed},
-			{ConceptName: "Servicios", MovementTypeAssociation: "Ambos", IsActive: true, CreatedBy: adminUserIDToSeed},
-			{ConceptName: "Otro", MovementTypeAssociation: "Ambos", IsActive: true, CreatedBy: adminUserIDToSeed},
-		}
-
-		for _, concept := range concepts {
-			DB.FirstOrCreate(&concept, models.ConceptType{ConceptName: concept.ConceptName})
-		}
-		log.Println("Datos iniciales (conceptos) creados.")
+	// Crear tres conceptos de prueba
+	var adminUserIDToSeed *uint
+	if adminUser.UserID != 0 {
+		adminUserIDToSeed = &adminUser.UserID
+	}
+	concepts := []models.ConceptType{
+		{ConceptName: "Concepto 1", MovementTypeAssociation: "Ingreso", IsActive: true, CreatedBy: adminUserIDToSeed},
+		{ConceptName: "Concepto 2", MovementTypeAssociation: "Egreso", IsActive: true, CreatedBy: adminUserIDToSeed},
+		{ConceptName: "Concepto 3", MovementTypeAssociation: "Ambos", IsActive: true, CreatedBy: adminUserIDToSeed},
+	}
+	for _, concept := range concepts {
+		DB.FirstOrCreate(&concept, models.ConceptType{ConceptName: concept.ConceptName})
 	}
 
-	// --- SEED MASIVO DE DATOS DE PRUEBA ---
-	// Crear usuarios de prueba
-	for i := 1; i <= 10; i++ {
-		user := models.User{
-			Email:        fmt.Sprintf("usuario%d@megacajas.com", i),
-			PasswordHash: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // "password"
-			FullName:     fmt.Sprintf("Usuario %d", i),
-			RoleID:       userRole.RoleID,
-			IsActive:     true,
-		}
-		DB.FirstOrCreate(&user, models.User{Email: user.Email})
-	}
-
-	// Crear arcos de prueba para los últimos 7 días y ambos turnos
-	var users []models.User
-	DB.Find(&users)
-	for d := 0; d < 7; d++ {
-		fecha := time.Now().AddDate(0, 0, -d).Truncate(24 * time.Hour)
-		for _, turno := range []string{"M", "T"} {
-			for _, user := range users {
-				arco := models.Arco{
-					CreatedBy:     user.UserID,
-					FechaApertura: fecha.Add(time.Hour * time.Duration(8+4*d)),
-					HoraApertura:  fecha.Add(time.Hour * time.Duration(8+4*d)),
-					Turno:         turno,
-					Activo:        false,
-					Fecha:         fecha,
-					FechaCierre:   nil,
-					HoraCierre:    nil,
-				}
-				DB.FirstOrCreate(&arco, models.Arco{CreatedBy: user.UserID, Fecha: fecha, Turno: turno})
-			}
-		}
-	}
-
-	// Crear movimientos de prueba para cada arco
-	var arcos []models.Arco
-	DB.Find(&arcos)
-	for _, arco := range arcos {
-		for j := 0; j < 20; j++ { // 20 movimientos por arco
-			mov := models.Movement{
-				ReferenceID:  fmt.Sprintf("%d-%d-%d", arco.ID, j+1, arco.CreatedBy),
-				MovementType: []string{"Ingreso", "Egreso"}[j%2],
-				MovementDate: arco.FechaApertura.Add(time.Minute * time.Duration(j*10)),
-				Amount:       float64(100 + j*5),
-				Shift:        arco.Turno,
-				ConceptID:    uint((j % 4) + 1),
-				Details:      fmt.Sprintf("Movimiento de prueba %d", j+1),
-				CreatedBy:    arco.CreatedBy,
-				CreatedAt:    arco.FechaApertura.Add(time.Minute * time.Duration(j*10)),
-				ArcoID:       arco.ID,
-			}
-			DB.Create(&mov)
-			if mov.MovementType == "Ingreso" {
-				DB.Create(&models.SpecificIncome{MovementID: mov.MovementID})
-			} else {
-				DB.Create(&models.SpecificExpense{MovementID: mov.MovementID})
-			}
-		}
-	}
-	log.Println("Datos masivos de prueba generados.")
+	log.Println("Solo un usuario y tres conceptos de prueba creados.")
 }

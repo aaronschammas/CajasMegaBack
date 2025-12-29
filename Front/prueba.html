@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Billetes</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Modal base */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            max-height: 90vh;
+            overflow-y: auto;
+            max-width: 700px;
+            width: 90vw;
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            border-radius: 1rem 1rem 0 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .modal-header i {
+            font-size: 1.5rem;
+        }
+
+        .modal-body {
+            padding: 2rem;
+        }
+
+        .bill-counting-section h4 {
+            color: #2563eb;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .instruction-text {
+            color: #6b7280;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .bill-calculator {
+            background: #f9fafb;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 2px solid #e5e7eb;
+        }
+
+        .bill-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem;
+            background: white;
+            border-radius: 0.5rem;
+            margin-bottom: 0.75rem;
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+
+        .bill-row:hover {
+            border-color: #2563eb;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+        }
+
+        .bill-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .resto-row {
+            border-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .resto-row:hover {
+            border-color: #d97706;
+        }
+
+        .bill-denomination {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            min-width: 140px;
+        }
+
+        .bill-denomination i {
+            color: #10b981;
+            font-size: 1.25rem;
+        }
+
+        .resto-row .bill-denomination i {
+            color: #f59e0b;
+        }
+
+        .bill-value {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #1f2937;
+        }
+
+        .bill-denomination small {
+            color: #6b7280;
+            font-size: 0.8rem;
+            display: block;
+            margin-top: 0.25rem;
+        }
+
+        .bill-counter {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .counter-btn {
+            width: 36px;
+            height: 36px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            border-radius: 0.375rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #6b7280;
+        }
+
+        .counter-btn:hover {
+            border-color: #2563eb;
+            color: #2563eb;
+            background: #eff6ff;
+        }
+
+        .counter-btn:active {
+            transform: scale(0.95);
+        }
+
+        .bill-quantity {
+            width: 80px;
+            height: 36px;
+            text-align: center;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            font-size: 1rem;
+            background: white;
+        }
+
+        .resto-input {
+            width: 100px;
+        }
+
+        .bill-quantity:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .bill-total {
+            min-width: 100px;
+            text-align: right;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #10b981;
+            font-family: "Courier New", monospace;
+        }
+
+        /* Cálculo visual */
+        .calculation-display {
+            background: #f3f4f6;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 2px solid #e5e7eb;
+        }
+
+        .calculation-display h5 {
+            color: #374151;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .formula {
+            font-family: "Courier New", monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1f2937;
+            background: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #d1d5db;
+            word-break: break-all;
+            line-height: 1.4;
+        }
+
+        /* Resumen final */
+        .final-summary {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            border: 2px solid #2563eb;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .summary-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .difference-row {
+            border-top: 2px solid #2563eb;
+            padding-top: 1rem;
+            margin-top: 1rem;
+        }
+
+        .summary-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            text-align: center;
+        }
+
+        .summary-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .summary-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: "Courier New", monospace;
+        }
+
+        .summary-value.positive {
+            color: #10b981;
+        }
+
+        .summary-value.negative {
+            color: #ef4444;
+        }
+
+        .summary-value.neutral {
+            color: #6b7280;
+        }
+
+        .difference-explanation {
+            text-align: center;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #cbd5e1;
+        }
+
+        .difference-explanation small {
+            color: #6b7280;
+            font-family: "Courier New", monospace;
+            font-size: 0.875rem;
+        }
+
+        /* Botones del modal */
+        .modal-actions {
+            padding: 1.5rem 2rem;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .btn-modal {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-cancel {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .btn-cancel:hover {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .btn-confirm {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .btn-confirm:hover {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 95vw;
+                margin: 1rem;
+            }
+
+            .modal-body {
+                padding: 1.5rem;
+            }
+
+            .bill-row {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .bill-denomination {
+                min-width: auto;
+                justify-content: center;
+            }
+
+            .summary-row {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .summary-item {
+                text-align: center;
+            }
+
+            .modal-actions {
+                flex-direction: column;
+            }
+
+            .formula {
+                font-size: 0.875rem;
+            }
+        }
+
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f3f4f6;
+        }
+
+        .demo-button {
+            background: #2563eb;
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <button class="demo-button" onclick="document.getElementById('confirmation-modal').style.display = 'flex'">
+        Abrir Calculadora de Billetes
+    </button>
+
+     Modal de calculadora de billetes 
+    <div id="confirmation-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fas fa-calculator"></i>
+                <h3>Conteo de Billetes - Cierre de Arqueo</h3>
+            </div>
+            <div class="modal-body">
+                 Calculadora de billetes 
+                <div class="bill-counting-section">
+                    <h4><i class="fas fa-money-bill-wave"></i> Contar billetes físicos</h4>
+                    <p class="instruction-text">Ingresa la cantidad de billetes que tienes físicamente en caja:</p>
+                    
+                    <div class="bill-calculator">
+                         Billete de $20000 
+                        <div class="bill-row">
+                            <div class="bill-denomination">
+                                <i class="fas fa-money-bill"></i>
+                                <span class="bill-value">$20.000</span>
+                            </div>
+                            <div class="bill-counter">
+                                <button type="button" class="counter-btn minus" onclick="decrementBill(20000)">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <input type="number" class="bill-quantity" id="bill-20000" value="0" min="0" onchange="updateCalculation()">
+                                <button type="button" class="counter-btn plus" onclick="incrementBill(20000)">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="bill-total" id="total-20000">$0</div>
+                        </div>
+
+                         Billete de $10000 
+                        <div class="bill-row">
+                            <div class="bill-denomination">
+                                <i class="fas fa-money-bill"></i>
+                                <span class="bill-value">$10.000</span>
+                            </div>
+                            <div class="bill-counter">
+                                <button type="button" class="counter-btn minus" onclick="decrementBill(10000)">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <input type="number" class="bill-quantity" id="bill-10000" value="0" min="0" onchange="updateCalculation()">
+                                <button type="button" class="counter-btn plus" onclick="incrementBill(10000)">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="bill-total" id="total-10000">$0</div>
+                        </div>
+
+                         Billete de $2000 
+                        <div class="bill-row">
+                            <div class="bill-denomination">
+                                <i class="fas fa-money-bill"></i>
+                                <span class="bill-value">$2.000</span>
+                            </div>
+                            <div class="bill-counter">
+                                <button type="button" class="counter-btn minus" onclick="decrementBill(2000)">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <input type="number" class="bill-quantity" id="bill-2000" value="0" min="0" onchange="updateCalculation()">
+                                <button type="button" class="counter-btn plus" onclick="incrementBill(2000)">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="bill-total" id="total-2000">$0</div>
+                        </div>
+
+                         Billete de $1000 
+                        <div class="bill-row">
+                            <div class="bill-denomination">
+                                <i class="fas fa-money-bill"></i>
+                                <span class="bill-value">$1.000</span>
+                            </div>
+                            <div class="bill-counter">
+                                <button type="button" class="counter-btn minus" onclick="decrementBill(1000)">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <input type="number" class="bill-quantity" id="bill-1000" value="0" min="0" onchange="updateCalculation()">
+                                <button type="button" class="counter-btn plus" onclick="incrementBill(1000)">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="bill-total" id="total-1000">$0</div>
+                        </div>
+
+                         Resto (monedas y billetes menores) 
+                        <div class="bill-row resto-row">
+                            <div class="bill-denomination">
+                                <i class="fas fa-coins"></i>
+                                <span class="bill-value">Resto</span>
+                                <small>(monedas y otros)</small>
+                            </div>
+                            <div class="bill-counter">
+                                <input type="number" class="bill-quantity resto-input" id="bill-resto" value="0" min="0" step="0.01" placeholder="0.00" onchange="updateCalculation()">
+                            </div>
+                            <div class="bill-total" id="total-resto">$0</div>
+                        </div>
+                    </div>
+
+                     Cálculo visual 
+                    <div class="calculation-display">
+                        <h5><i class="fas fa-equals"></i> Cálculo:</h5>
+                        <div id="calculation-formula" class="formula">
+                            $20.000 × 0 + $10.000 × 0 + $2.000 × 0 + $1.000 × 0 + Resto $0 = $0
+                        </div>
+                    </div>
+
+                     Resumen final 
+                    <div class="final-summary">
+                        <div class="summary-row">
+                            <div class="summary-item total-counted">
+                                <span class="summary-label">Total Contado:</span>
+                                <span id="total-counted-amount" class="summary-value">$0</span>
+                            </div>
+                            <div class="summary-item system-balance">
+                                <span class="summary-label">Saldo del Sistema:</span>
+                                <span id="modal-saldo-value" class="summary-value">$1.250,75</span>
+                            </div>
+                        </div>
+                        <div class="summary-row difference-row">
+                            <div class="summary-item difference">
+                                <span class="summary-label">Diferencia:</span>
+                                <span id="difference-amount" class="summary-value negative">-$1.250,75</span>
+                            </div>
+                        </div>
+                        <div class="difference-explanation">
+                            <small id="difference-text">$0 - $1.250,75 = -$1.250,75</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-modal btn-cancel" onclick="document.getElementById('confirmation-modal').style.display = 'none'">Cancelar</button>
+                <button class="btn-modal btn-confirm">Confirmar Cierre</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const systemBalance = 1250.75; // Saldo del sistema
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('es-AR', {
+                style: 'currency',
+                currency: 'ARS',
+                minimumFractionDigits: 2
+            }).format(amount);
+        }
+
+        function formatNumber(number) {
+            return new Intl.NumberFormat('es-AR').format(number);
+        }
+
+        function incrementBill(denomination) {
+            const input = document.getElementById(`bill-${denomination}`);
+            let currentValue = parseInt(input.value) || 0;
+            input.value = currentValue + 1;
+            updateCalculation();
+        }
+
+        function decrementBill(denomination) {
+            const input = document.getElementById(`bill-${denomination}`);
+            let currentValue = parseInt(input.value) || 0;
+            if (currentValue > 0) {
+                input.value = currentValue - 1;
+                updateCalculation();
+            }
+        }
+
+        function updateCalculation() {
+            let totalCounted = 0;
+            const parts = [];
+
+            // Calcular billetes
+            const denominations = [20000, 10000, 2000, 1000];
+            denominations.forEach(denomination => {
+                const count = parseInt(document.getElementById(`bill-${denomination}`).value) || 0;
+                const value = denomination * count;
+                totalCounted += value;
+                
+                const denominationFormatted = formatNumber(denomination);
+                parts.push(`$${denominationFormatted} × ${count}`);
+                
+                // Actualizar total individual
+                document.getElementById(`total-${denomination}`).textContent = formatCurrency(value);
+            });
+
+            // Calcular resto
+            const resto = parseFloat(document.getElementById('bill-resto').value) || 0;
+            totalCounted += resto;
+            parts.push(`Resto $${formatNumber(resto)}`);
+            document.getElementById('total-resto').textContent = formatCurrency(resto);
+
+            // Actualizar fórmula
+            const formula = parts.join(' + ') + ` = ${formatCurrency(totalCounted)}`;
+            document.getElementById('calculation-formula').textContent = formula;
+
+            // Actualizar total contado
+            document.getElementById('total-counted-amount').textContent = formatCurrency(totalCounted);
+
+            // Calcular diferencia
+            const difference = totalCounted - systemBalance;
+            const differenceElement = document.getElementById('difference-amount');
+            differenceElement.textContent = formatCurrency(difference);
+
+            // Aplicar color según la diferencia
+            differenceElement.classList.remove('positive', 'negative', 'neutral');
+            if (difference > 0) {
+                differenceElement.classList.add('positive');
+            } else if (difference < 0) {
+                differenceElement.classList.add('negative');
+            } else {
+                differenceElement.classList.add('neutral');
+            }
+
+            // Actualizar texto explicativo
+            document.getElementById('difference-text').textContent = 
+                `${formatCurrency(totalCounted)} - ${formatCurrency(systemBalance)} = ${formatCurrency(difference)}`;
+        }
+
+        // Inicializar
+        updateCalculation();
+    </script>
+</body>
+</html>

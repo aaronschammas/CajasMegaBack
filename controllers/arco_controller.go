@@ -33,6 +33,8 @@ func SaldoUltimoArcoHandler(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo obtener el saldo actual"})
 		return
 	}
+	// Log para depuración
+	fmt.Printf("[DEBUG] Objeto saldo obtenido de la DB: %+v\n", saldo)
 	ctx.JSON(http.StatusOK, saldo)
 }
 
@@ -78,7 +80,16 @@ func (c *ArcoController) CerrarArco(ctx *gin.Context) {
 		return
 	}
 	userID := ctx.GetUint("user_id")
-	arco, err := c.arcoService.CerrarArco(uint(arcoID), userID)
+	// Opcional: recibir monto de retiro enviado por el cliente para crear el RetiroCaja durante el cierre
+	retiroStr := ctx.PostForm("retiro_amount")
+	var retiroAmount float64
+	if retiroStr != "" {
+		if v, err := strconv.ParseFloat(retiroStr, 64); err == nil {
+			retiroAmount = v
+		}
+	}
+
+	arco, err := c.arcoService.CerrarArcoConRetiro(uint(arcoID), userID, retiroAmount)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
