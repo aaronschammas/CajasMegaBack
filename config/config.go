@@ -1,10 +1,13 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -12,7 +15,7 @@ import (
 
 type Config struct {
 	// Configuración de la Aplicación
-	Environment string // "development", "staging", "production"
+	Environment string
 	AppName     string
 	AppPort     string
 	AppURL      string
@@ -40,13 +43,20 @@ type Config struct {
 	RateLimitDuration time.Duration
 
 	// Configuración de Logs
-	LogLevel string // "debug", "info", "warn", "error"
+	LogLevel string
 	LogFile  string
 
 	// Configuración de Inicialización
 	CreateDefaultAdmin bool
 	DefaultAdminEmail  string
 	DefaultAdminPass   string
+
+	// NUEVAS CONFIGURACIONES DE SEGURIDAD
+	EnableCSRF      bool
+	EnableRateLimit bool
+	MaxRequestSize  int64 // en bytes
+	RequestTimeout  time.Duration
+	SessionDuration time.Duration
 }
 
 var AppConfig *Config
@@ -74,37 +84,46 @@ func LoadConfig() *Config {
 		DBHost:     getEnv("DB_HOST", "127.0.0.1"),
 		DBPort:     getEnv("DB_PORT", "3306"),
 		DBUser:     getEnv("DB_USER", "root"),
-		DBPassword: getEnv("DB_PASSWORD", "12345"),
+		DBPassword: getEnv("DB_PASSWORD", getDefaultDBPassword(env)),
 		DBName:     getEnv("DB_NAME", "fuerte_caja"),
 		DBCharset:  getEnv("DB_CHARSET", "utf8mb4"),
 
 		// Seguridad
-		JWTSecret:          getEnv("JWT_SECRET", generateDefaultSecret()),
+		JWTSecret:          getEnv("JWT_SECRET", generateSecureSecret(env)),
 		JWTExpirationHours: getEnvAsInt("JWT_EXPIRATION_HOURS", 24),
-		PasswordSaltRounds: getEnvAsInt("PASSWORD_SALT_ROUNDS", 10),
+		PasswordSaltRounds: getEnvAsInt("PASSWORD_SALT_ROUNDS", 12), // Aumentado de 10 a 12
 
 		// CORS
-		AllowedOrigins: getEnvAsSlice("ALLOWED_ORIGINS", []string{"*"}),
+		AllowedOrigins: getAllowedOrigins(env),
 		AllowedMethods: getEnvAsSlice("ALLOWED_METHODS", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
-		AllowedHeaders: getEnvAsSlice("ALLOWED_HEADERS", []string{"Content-Type", "Authorization", "X-Requested-With"}),
+		AllowedHeaders: getEnvAsSlice("ALLOWED_HEADERS", []string{"Content-Type", "Authorization", "X-Requested-With", "X-CSRF-Token"}),
 
 		// Rate Limiting
 		RateLimitRequests: getEnvAsInt("RATE_LIMIT_REQUESTS", 100),
 		RateLimitDuration: time.Duration(getEnvAsInt("RATE_LIMIT_DURATION_SECONDS", 60)) * time.Second,
 
 		// Logs
-		LogLevel: getEnv("LOG_LEVEL", "info"),
+		LogLevel: getEnv("LOG_LEVEL", getDefaultLogLevel(env)),
 		LogFile:  getEnv("LOG_FILE", ""),
 
 		// Inicialización
 		CreateDefaultAdmin: getEnvAsBool("CREATE_DEFAULT_ADMIN", false),
 		DefaultAdminEmail:  getEnv("DEFAULT_ADMIN_EMAIL", ""),
 		DefaultAdminPass:   getEnv("DEFAULT_ADMIN_PASSWORD", ""),
+
+		// Seguridad Adicional
+		EnableCSRF:      getEnvAsBool("ENABLE_CSRF", env == "production"),
+		EnableRateLimit: getEnvAsBool("ENABLE_RATE_LIMIT", true),
+		MaxRequestSize:  int64(getEnvAsInt("MAX_REQUEST_SIZE_MB", 10)) * 1024 * 1024, // 10 MB por defecto
+		RequestTimeout:  time.Duration(getEnvAsInt("REQUEST_TIMEOUT_SECONDS", 30)) * time.Second,
+		SessionDuration: time.Duration(getEnvAsInt("SESSION_DURATION_HOURS", 24)) * time.Hour,
 	}
 
 	// Validaciones críticas para producción
 	if config.Environment == "production" {
-		config.validateProductionConfig()
+		if err := config.validateProductionConfig(); err != nil {
+			log.Fatal("❌ ERRORES DE CONFIGURACIÓN PARA PRODUCCIÓN:\n", err)
+		}
 	}
 
 	AppConfig = config
@@ -112,30 +131,50 @@ func LoadConfig() *Config {
 }
 
 // validateProductionConfig valida que la configuración sea segura para producción
-func (c *Config) validateProductionConfig() {
+func (c *Config) validateProductionConfig() error {
 	errors := []string{}
 
 	// JWT Secret debe ser fuerte en producción
-	if len(c.JWTSecret) < 32 {
-		errors = append(errors, "JWT_SECRET debe tener al menos 32 caracteres en producción")
+	if len(c.JWTSecret) < 64 {
+		errors = append(errors, "JWT_SECRET debe tener al menos 64 caracteres en producción")
 	}
 
 	// La contraseña de base de datos no debe ser la predeterminada
-	if c.DBPassword == "12345" || c.DBPassword == "root" || c.DBPassword == "" {
-		errors = append(errors, "DB_PASSWORD debe ser una contraseña segura en producción")
+	weakPasswords := []string{"12345", "root", "password", "admin", ""}
+	for _, weak := range weakPasswords {
+		if c.DBPassword == weak {
+			errors = append(errors, "DB_PASSWORD debe ser una contraseña segura en producción")
+			break
+		}
+	}
+
+	// Usuario de BD no debe ser root
+	if c.DBUser == "root" {
+		errors = append(errors, "DB_USER no debe ser 'root' en producción")
 	}
 
 	// CORS no debe permitir todos los orígenes
 	if len(c.AllowedOrigins) == 1 && c.AllowedOrigins[0] == "*" {
-		log.Println("⚠️  ADVERTENCIA: CORS permite todos los orígenes. Esto es inseguro en producción.")
+		errors = append(errors, "CORS no debe permitir todos los orígenes (*) en producción")
 	}
 
-	// Si hay errores críticos, detener la aplicación
+	// JWT expiration debe ser razonable
+	if c.JWTExpirationHours > 168 { // 7 días
+		log.Println("⚠️  ADVERTENCIA: JWT_EXPIRATION_HOURS es muy alto (>7 días)")
+	}
+
+	// Password salt rounds debe ser suficiente
+	if c.PasswordSaltRounds < 12 {
+		errors = append(errors, "PASSWORD_SALT_ROUNDS debe ser al menos 12 en producción")
+	}
+
+	// Si hay errores críticos, retornarlos
 	if len(errors) > 0 {
-		log.Fatal("❌ ERRORES DE CONFIGURACIÓN PARA PRODUCCIÓN:\n", joinErrors(errors))
+		return fmt.Errorf("%s", strings.Join(errors, "\n"))
 	}
 
 	log.Println("✅ Configuración validada para producción")
+	return nil
 }
 
 // GetDSN retorna el Data Source Name para la conexión a MySQL
@@ -171,7 +210,7 @@ func (c *Config) IsProduction() bool {
 	return c.Environment == "production"
 }
 
-// Funciones auxiliares para leer variables de entorno
+// Funciones auxiliares
 
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
@@ -201,57 +240,73 @@ func getEnvAsSlice(key string, defaultValue []string) []string {
 	if valueStr == "" {
 		return defaultValue
 	}
-	// Separar por comas
+
 	var result []string
-	for _, v := range splitString(valueStr, ",") {
-		result = append(result, trimSpace(v))
-	}
-	return result
-}
-
-func generateDefaultSecret() string {
-	log.Println("⚠️  ADVERTENCIA: No se configuró JWT_SECRET. Generando uno temporal (NO USAR EN PRODUCCIÓN)")
-	return "CHANGE_THIS_SECRET_KEY_IN_PRODUCTION_DO_NOT_USE_THIS_DEFAULT_VALUE"
-}
-
-func joinErrors(errors []string) string {
-	result := ""
-	for i, err := range errors {
-		result += fmt.Sprintf("%d. %s\n", i+1, err)
-	}
-	return result
-}
-
-func splitString(s, sep string) []string {
-	var result []string
-	current := ""
-	for _, char := range s {
-		if string(char) == sep {
-			if current != "" {
-				result = append(result, current)
-				current = ""
-			}
-		} else {
-			current += string(char)
+	for _, v := range strings.Split(valueStr, ",") {
+		trimmed := strings.TrimSpace(v)
+		if trimmed != "" {
+			result = append(result, trimmed)
 		}
 	}
-	if current != "" {
-		result = append(result, current)
-	}
 	return result
 }
 
-func trimSpace(s string) string {
-	start := 0
-	end := len(s)
+// getAllowedOrigins retorna los orígenes permitidos según el entorno
+func getAllowedOrigins(env string) []string {
+	originsStr := os.Getenv("ALLOWED_ORIGINS")
 
-	for start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\n' || s[start] == '\r') {
-		start++
+	if env == "production" {
+		if originsStr == "" {
+			log.Fatal("❌ ALLOWED_ORIGINS debe estar configurado en producción")
+		}
+		if originsStr == "*" {
+			log.Fatal("❌ ALLOWED_ORIGINS no puede ser '*' en producción")
+		}
+		return strings.Split(originsStr, ",")
 	}
 
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\n' || s[end-1] == '\r') {
-		end--
+	// En desarrollo, permitir localhost con puertos específicos
+	if originsStr != "" {
+		return strings.Split(originsStr, ",")
 	}
 
-	return s[start:end]
+	return []string{
+		"http://localhost:8080",
+		"http://localhost:3000",
+		"http://127.0.0.1:8080",
+	}
+}
+
+// generateSecureSecret genera un secret seguro
+func generateSecureSecret(env string) string {
+	if env == "production" {
+		log.Fatal("❌ JWT_SECRET debe estar configurado en producción. No se puede usar un valor generado automáticamente.")
+	}
+
+	log.Println("⚠️  ADVERTENCIA: Generando JWT_SECRET temporal para desarrollo. NO USAR EN PRODUCCIÓN")
+
+	// Generar 64 bytes aleatorios
+	b := make([]byte, 64)
+	if _, err := rand.Read(b); err != nil {
+		log.Fatal("Error generando secret:", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(b)
+}
+
+// getDefaultDBPassword retorna una contraseña por defecto según el entorno
+func getDefaultDBPassword(env string) string {
+	if env == "production" {
+		log.Fatal("❌ DB_PASSWORD debe estar configurado en producción")
+	}
+	log.Println("⚠️  Usando contraseña de BD por defecto (solo desarrollo)")
+	return "12345"
+}
+
+// getDefaultLogLevel retorna el nivel de log por defecto según el entorno
+func getDefaultLogLevel(env string) string {
+	if env == "production" {
+		return "info"
+	}
+	return "debug"
 }
