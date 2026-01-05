@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
+
 	"go.uber.org/zap"
 )
 
@@ -22,9 +24,13 @@ func main() {
 	// Banner de inicio
 	printBanner()
 
+	if err := godotenv.Load(); err != nil {
+		log.Println(" No se pudo cargar .env (puede ser normal en prod)")
+	}
+
 	// 1. Cargar configuración
 	cfg := config.LoadConfig()
-	log.Printf("🚀 Iniciando %s en modo %s", cfg.AppName, cfg.Environment)
+	log.Printf("Iniciando %s en modo %s", cfg.AppName, cfg.Environment)
 
 	// 2. Inicializar logger estructurado
 	if err := utils.InitLogger(cfg.Environment); err != nil {
