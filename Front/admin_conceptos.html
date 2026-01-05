@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Conceptos - MegaAdmin</title>
+    <link rel="stylesheet" href="/css/reporte.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-tags"></i>
+                    <h1>Gestión de Conceptos</h1>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="/movimientos" class="header-btn btn-primary">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Volver</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- Botón de crear -->
+        <div class="page-header">
+            <div class="page-title">
+                <i class="fas fa-list"></i>
+                <div>
+                    <h2>Conceptos de Movimientos</h2>
+                    <p>Gestiona los conceptos para ingresos y egresos</p>
+                </div>
+            </div>
+            <div class="page-actions">
+                <button class="btn btn-success" id="btnNuevoConcepto">
+                    <i class="fas fa-plus"></i>
+                    <span>Nuevo Concepto</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabla de conceptos -->
+        <div class="table-section">
+            <div class="section-header">
+                <h3><i class="fas fa-table"></i> Lista de Conceptos</h3>
+            </div>
+            <div class="table-container">
+                <table class="tabla-movimientos">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Tipo Asociado</th>
+                            <th>Estado</th>
+                            <th>Creado Por</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="conceptosTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center;">
+                                <div class="spinner"></div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal para crear/editar concepto -->
+    <div id="conceptoModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <i class="fas fa-edit"></i>
+                <h3 id="modalTitle">Nuevo Concepto</h3>
+            </div>
+            <div class="modal-body" style="padding: 2rem;">
+                <form id="conceptoForm">
+                    <input type="hidden" id="conceptoId">
+                    
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label for="conceptName" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                            <i class="fas fa-tag"></i> Nombre del Concepto
+                        </label>
+                        <input type="text" id="conceptName" class="form-control" required placeholder="Ej: Venta de productos">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label for="movementType" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                            <i class="fas fa-exchange-alt"></i> Tipo de Movimiento
+                        </label>
+                        <select id="movementType" class="form-control" required>
+                            <option value="">Seleccione...</option>
+                            <option value="Ingreso">Ingreso</option>
+                            <option value="Egreso">Egreso</option>
+                            <option value="RetiroCaja">Retiro de Caja</option>
+                            <option value="Ambos">Ambos (Ingreso/Egreso)</option>
+                        </select>
+                    </div>
+
+                    <div id="editOnlyFields" style="display: none;">
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="isActive" style="width: 20px; height: 20px;">
+                                <span style="font-weight: 600;">
+                                    <i class="fas fa-check-circle"></i> Concepto Activo
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-modal btn-cancel" onclick="cerrarModal()">Cancelar</button>
+                <button class="btn-modal btn-confirm" id="btnGuardarConcepto">
+                    <i class="fas fa-save"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let conceptos = [];
+
+        // Cargar conceptos al iniciar
+        document.addEventListener('DOMContentLoaded', () => {
+            cargarConceptos();
+        });
+
+        // Cargar conceptos desde la API
+        async function cargarConceptos() {
+            try {
+                const res = await fetch('/api/admin/conceptos', {
+                    credentials: 'include'
+                });
+                if (!res.ok) throw new Error('Error al cargar conceptos');
+                
+                conceptos = await res.json();
+                renderConceptos();
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al cargar los conceptos');
+            }
+        }
+
+        // Renderizar tabla de conceptos
+        function renderConceptos() {
+            const tbody = document.getElementById('conceptosTableBody');
+            
+            if (conceptos.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center;">
+                            <div class="empty-state">
+                                <i class="fas fa-inbox"></i>
+                                <p>No hay conceptos registrados</p>
+                            </div>
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            tbody.innerHTML = conceptos.map(c => `
+                <tr>
+                    <td>${c.concept_id}</td>
+                    <td><strong>${c.concept_name}</strong></td>
+                    <td>
+                        <span class="badge ${getBadgeClass(c.movement_type_association)}">
+                            ${c.movement_type_association}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge ${c.is_active ? 'badge-success' : 'badge-danger'}">
+                            ${c.is_active ? 'Activo' : 'Inactivo'}
+                        </span>
+                    </td>
+                    <td>${c.creator ? c.creator.full_name : 'N/A'}</td>
+                    <td>
+                        <button class="btn btn-secondary" onclick="editarConcepto(${c.concept_id})" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-danger" onclick="eliminarConcepto(${c.concept_id})" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getBadgeClass(type) {
+            const classes = {
+                'Ingreso': 'badge-success',
+                'Egreso': 'badge-danger',
+                'RetiroCaja': 'badge-warning',
+                'Ambos': 'badge-primary'
+            };
+            return classes[type] || '';
+        }
+
+        // Abrir modal para nuevo concepto
+        document.getElementById('btnNuevoConcepto').addEventListener('click', () => {
+            document.getElementById('modalTitle').textContent = 'Nuevo Concepto';
+            document.getElementById('conceptoForm').reset();
+            document.getElementById('conceptoId').value = '';
+            document.getElementById('editOnlyFields').style.display = 'none';
+            document.getElementById('conceptoModal').style.display = 'flex';
+        });
+
+        // Editar concepto
+        function editarConcepto(id) {
+            const concepto = conceptos.find(c => c.concept_id === id);
+            if (!concepto) return;
+
+            document.getElementById('modalTitle').textContent = 'Editar Concepto';
+            document.getElementById('conceptoId').value = concepto.concept_id;
+            document.getElementById('conceptName').value = concepto.concept_name;
+            document.getElementById('movementType').value = concepto.movement_type_association;
+            document.getElementById('isActive').checked = concepto.is_active;
+            document.getElementById('editOnlyFields').style.display = 'block';
+            document.getElementById('conceptoModal').style.display = 'flex';
+        }
+
+        // Guardar concepto (crear o actualizar)
+        document.getElementById('btnGuardarConcepto').addEventListener('click', async () => {
+            const id = document.getElementById('conceptoId').value;
+            const data = {
+                concept_name: document.getElementById('conceptName').value,
+                movement_type_association: document.getElementById('movementType').value
+            };
+
+            if (id) {
+                data.is_active = document.getElementById('isActive').checked;
+            }
+
+            try {
+                const url = id ? `/api/admin/conceptos/${id}` : '/api/admin/conceptos';
+                const method = id ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(data)
+                });
+
+                if (!res.ok) throw new Error('Error al guardar');
+
+                alert(id ? 'Concepto actualizado' : 'Concepto creado');
+                cerrarModal();
+                cargarConceptos();
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al guardar el concepto');
+            }
+        });
+
+        // Eliminar concepto
+        async function eliminarConcepto(id) {
+            if (!confirm('¿Estás seguro de eliminar este concepto?')) return;
+
+            try {
+                const res = await fetch(`/api/admin/conceptos/${id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                if (!res.ok) throw new Error('Error al eliminar');
+
+                alert('Concepto eliminado');
+                cargarConceptos();
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al eliminar el concepto');
+            }
+        }
+
+        function cerrarModal() {
+            document.getElementById('conceptoModal').style.display = 'none';
+        }
+
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('conceptoModal').addEventListener('click', (e) => {
+            if (e.target.id === 'conceptoModal') {
+                cerrarModal();
+            }
+        });
+    </script>
+
+    <style>
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-success { background: rgba(16, 185, 129, 0.1); color: #059669; }
+        .badge-danger { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+        .badge-warning { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+        .badge-primary { background: rgba(37, 99, 235, 0.1); color: #1d4ed8; }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</body>
+</html>
