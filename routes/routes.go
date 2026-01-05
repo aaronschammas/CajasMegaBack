@@ -104,6 +104,14 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 
 		// ✅ NUEVO: Cambio de contraseña
 		protected.POST("/api/change-password", authController.ChangePassword)
+
+		// Rutas para registro de usuarios y roles
+		protected.GET("/registro_usuarios", func(c *gin.Context) {
+			c.File("./Front/registro_usuarios.html")
+		})
+		protected.GET("/registro_roles", func(c *gin.Context) {
+			c.File("./Front/registro_roles.html")
+		})
 	}
 
 	return r

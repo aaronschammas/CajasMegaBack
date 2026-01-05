@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Roles - MegaAdmin</title>
+    <link rel="stylesheet" href="css/reporte.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-user-shield"></i>
+                    <h1>Gestión de Roles</h1>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="/movimientos" class="header-btn btn-primary">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Volver</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- Botón de crear -->
+        <div class="page-header">
+            <div class="page-title">
+                <i class="fas fa-users-cog"></i>
+                <div>
+                    <h2>Roles del Sistema</h2>
+                    <p>Gestiona los roles y permisos de usuarios</p>
+                </div>
+            </div>
+            <div class="page-actions">
+                <button class="btn btn-success" id="btnNuevoRol">
+                    <i class="fas fa-plus"></i>
+                    <span>Nuevo Rol</span>
+                </button>
+                <a href="/admin/usuarios" class="btn btn-primary">
+                    <i class="fas fa-users"></i>
+                    <span>Gestionar Usuarios</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Tabla de roles -->
+        <div class="table-section">
+            <div class="section-header">
+                <h3><i class="fas fa-table"></i> Lista de Roles</h3>
+            </div>
+            <div class="table-container">
+                <table class="tabla-movimientos">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre del Rol</th>
+                            <th>Usuarios Asignados</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rolesTableBody">
+                        <tr>
+                            <td colspan="4" style="text-align: center;">
+                                <div class="spinner"></div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal para crear/editar rol -->
+    <div id="rolModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fas fa-edit"></i>
+                <h3 id="modalTitle">Nuevo Rol</h3>
+            </div>
+            <div class="modal-body">
+                <form id="rolForm">
+                    <input type="hidden" id="rolId">
+                    
+                    <div class="form-group">
+                        <label for="roleName">
+                            <i class="fas fa-shield-alt"></i> Nombre del Rol
+                        </label>
+                        <input type="text" id="roleName" class="form-control" required placeholder="Ej: Supervisor">
+                        <small class="form-hint">
+                            El nombre debe ser único y descriptivo
+                        </small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-modal btn-cancel" onclick="cerrarModal()">Cancelar</button>
+                <button class="btn-modal btn-confirm" id="btnGuardarRol">
+                    <i class="fas fa-save"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/registro-roles.js"></script>
+</body>
+</html>
