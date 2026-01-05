@@ -24,7 +24,7 @@ func main() {
 
 	// 1. Cargar configuración
 	cfg := config.LoadConfig()
-	log.Printf(" Iniciando %s en modo %s", cfg.AppName, cfg.Environment)
+	log.Printf("🚀 Iniciando %s en modo %s", cfg.AppName, cfg.Environment)
 
 	// 2. Inicializar logger estructurado
 	if err := utils.InitLogger(cfg.Environment); err != nil {
@@ -65,66 +65,60 @@ func main() {
 
 	// 8. Iniciar servidor en goroutine
 	go func() {
-		utils.Logger.Info(" Servidor iniciado",
+		utils.Logger.Info("🌐 Servidor iniciado",
 			zap.String("url", fmt.Sprintf("http://localhost:%s", cfg.AppPort)),
 			zap.String("environment", cfg.Environment),
 		)
 
-		utils.Logger.Info(" Documentación API disponible",
-			zap.String("url", fmt.Sprintf("http://localhost:%s/api/docs", cfg.AppPort)),
-		)
-
 		// Warnings de seguridad para producción
 		if cfg.IsProduction() {
-			utils.Logger.Warn("Modo PRODUCCIÓN activado - Verificando configuración de seguridad...")
+			utils.Logger.Warn("⚠️  Modo PRODUCCIÓN activado - Verificando configuración de seguridad...")
 
 			checkList := []struct {
 				check   bool
 				message string
 			}{
-				{len(cfg.JWTSecret) >= 64, "JWT_SECRET tiene longitud adecuada (≥64)"},
-				{cfg.EnableCSRF, "CSRF Protection habilitado"},
-				{cfg.EnableRateLimit, "Rate Limiting habilitado"},
-				{cfg.AllowedOrigins[0] != "*", "CORS configurado con orígenes específicos"},
-				{cfg.DBUser != "root", "Usuario de BD no es root"},
+				{len(cfg.JWTSecret) >= 64, "✅ JWT_SECRET tiene longitud adecuada (≥64)"},
+				{cfg.EnableCSRF, "✅ CSRF Protection habilitado"},
+				{cfg.EnableRateLimit, "✅ Rate Limiting habilitado"},
+				{cfg.AllowedOrigins[0] != "*", "✅ CORS configurado con orígenes específicos"},
+				{cfg.DBUser != "root", "✅ Usuario de BD no es root"},
 			}
 
 			for _, item := range checkList {
 				if item.check {
 					utils.Logger.Info(item.message)
 				} else {
-					utils.Logger.Warn(item.message + " - FALLÓ")
+					utils.Logger.Warn("❌ " + item.message + " - FALLÓ")
 				}
 			}
 
-			utils.Logger.Info(" Recordatorios de seguridad:")
+			utils.Logger.Info("📋 Recordatorios de seguridad:")
 			utils.Logger.Info("   - Usar HTTPS (reverse proxy como Nginx)")
 			utils.Logger.Info("   - Configurar firewall")
 			utils.Logger.Info("   - Tener backups automáticos de BD")
 			utils.Logger.Info("   - Monitorear logs y métricas")
 			utils.Logger.Info("   - Rotar JWT_SECRET periódicamente")
-		} else {
-			utils.Logger.Info(" Modo DESARROLLO - Algunas características de seguridad reducidas")
-		}
 
-		// Iniciar servidor (HTTPS en producción, HTTP en desarrollo)
-		if cfg.IsProduction() {
-			// En producción, verificar certificados SSL
+			// ✅ CORREGIDO: Forzar HTTPS en producción
 			certFile := os.Getenv("SSL_CERT_FILE")
 			keyFile := os.Getenv("SSL_KEY_FILE")
 
 			if certFile == "" || keyFile == "" {
-				utils.Logger.Warn(" Certificados SSL no configurados. Cayendo a HTTP.")
-				utils.Logger.Warn("   Configura SSL_CERT_FILE y SSL_KEY_FILE en .env")
-				serverErrors <- server.ListenAndServe()
-			} else {
-				utils.Logger.Info("Iniciando servidor HTTPS",
-					zap.String("cert", certFile),
+				utils.Logger.Fatal("🔒 CERTIFICADOS SSL REQUERIDOS EN PRODUCCIÓN",
+					zap.String("ssl_cert_file", "SSL_CERT_FILE no configurado"),
+					zap.String("ssl_key_file", "SSL_KEY_FILE no configurado"),
+					zap.String("instruccion", "Configura SSL_CERT_FILE y SSL_KEY_FILE en .env o usa reverse proxy (Nginx)"),
 				)
-				serverErrors <- server.ListenAndServeTLS(certFile, keyFile)
 			}
+
+			utils.Logger.Info("🔒 Iniciando servidor HTTPS",
+				zap.String("cert", certFile),
+			)
+			serverErrors <- server.ListenAndServeTLS(certFile, keyFile)
 		} else {
-			// HTTP solo en desarrollo
+			utils.Logger.Info("⚠️  Modo DESARROLLO - HTTP sin cifrado")
+			utils.Logger.Info("   Algunas características de seguridad reducidas")
 			serverErrors <- server.ListenAndServe()
 		}
 	}()
@@ -139,7 +133,7 @@ func main() {
 		utils.Logger.Fatal("Error del servidor", zap.Error(err))
 
 	case sig := <-shutdown:
-		utils.Logger.Info("Señal de apagado recibida",
+		utils.Logger.Info("🛑 Señal de apagado recibida",
 			zap.String("signal", sig.String()),
 		)
 
@@ -147,22 +141,22 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		utils.Logger.Info("Cerrando conexiones activas...")
+		utils.Logger.Info("⏳ Cerrando conexiones activas...")
 
 		if err := server.Shutdown(ctx); err != nil {
-			utils.Logger.Warn("Error durante el apagado graceful",
+			utils.Logger.Warn("⚠️  Error durante el apagado graceful",
 				zap.Error(err),
 			)
 
 			// Forzar cierre si el graceful shutdown falla
 			if err := server.Close(); err != nil {
-				utils.Logger.Fatal("Error al forzar el cierre del servidor",
+				utils.Logger.Fatal("❌ Error al forzar el cierre del servidor",
 					zap.Error(err),
 				)
 			}
 		}
 
-		utils.Logger.Info("Servidor detenido correctamente")
+		utils.Logger.Info("✅ Servidor detenido correctamente")
 	}
 }
 
@@ -178,7 +172,7 @@ func printBanner() {
 ║   ╚═════╝╚═╝  ╚═╝ ╚════╝ ╚═╝  ╚═╝    ╚═╝        ╚═╝     ║
 ║                                                           ║
 ║            SISTEMA DE GESTIÓN DE CAJA FUERTE             ║
-║                    Versión 2.0.0 - Secure                ║
+║                    Versión 2.0.1 - Secure                ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
 `

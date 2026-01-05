@@ -69,6 +69,49 @@ func (s *AuthService) Login(email, password string) (string, *models.User, error
 	return tokenString, &user, nil
 }
 
+// ✅ NUEVO: Register crea un nuevo usuario
+func (s *AuthService) Register(email, password, fullName string) (*models.User, error) {
+	// Validar que el email no exista
+	var existingUser models.User
+	if err := database.DB.Where("LOWER(email) = LOWER(?)", email).First(&existingUser).Error; err == nil {
+		return nil, errors.New("el email ya está registrado")
+	}
+
+	// Hashear contraseña
+	hashedPassword, err := s.HashPassword(password)
+	if err != nil {
+		return nil, errors.New("error al procesar la contraseña")
+	}
+
+	// Obtener el rol por defecto (buscar "Usuario" o el primer rol disponible)
+	var defaultRole models.Role
+	if err := database.DB.Where("role_name = ?", "Usuario").First(&defaultRole).Error; err != nil {
+		// Si no existe rol "Usuario", obtener el primer rol disponible
+		if err := database.DB.First(&defaultRole).Error; err != nil {
+			return nil, errors.New("no hay roles configurados en el sistema")
+		}
+	}
+
+	// Crear usuario
+	user := models.User{
+		Email:        email,
+		PasswordHash: hashedPassword,
+		FullName:     fullName,
+		RoleID:       defaultRole.RoleID,
+		IsActive:     true,
+		CreatedAt:    time.Now(),
+	}
+
+	if err := database.DB.Create(&user).Error; err != nil {
+		return nil, errors.New("error al crear el usuario")
+	}
+
+	// Cargar la relación Role
+	database.DB.Preload("Role").First(&user, user.UserID)
+
+	return &user, nil
+}
+
 // ValidateToken valida un JWT token y retorna los claims
 func (s *AuthService) ValidateToken(tokenString string) (*jwt.MapClaims, error) {
 	if len(jwtSecret) == 0 {
@@ -169,7 +212,7 @@ func (s *AuthService) RefreshToken(oldTokenString string) (string, error) {
 }
 
 // InvalidateToken invalida un token (implementación básica)
-// NOTA: Para una implementación completa, usar Redis o una blacklist en BD
+// TODO: Implementar blacklist real con Redis
 func (s *AuthService) InvalidateToken(tokenString string) error {
 	// Por ahora, solo validamos que el token sea válido
 	_, err := s.ValidateToken(tokenString)
@@ -177,8 +220,9 @@ func (s *AuthService) InvalidateToken(tokenString string) error {
 		return errors.New("token ya inválido")
 	}
 
-	// TODO: Implementar blacklist de tokens con Redis
-	// Por ahora, confiamos en la expiración del token
+	// TODO: Agregar a blacklist en Redis
+	// redis.Set("blacklist:"+tokenString, "1", config.AppConfig.JWTExpirationHours)
+
 	return nil
 }
 

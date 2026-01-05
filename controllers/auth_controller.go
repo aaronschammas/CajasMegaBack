@@ -92,17 +92,132 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	// Configurar cookies de forma segura
 	c.setSecureCookies(ctx, token)
 
-	// Consultar estado del arco (opcional, para mostrar al usuario)
-	arcoService := services.NewArcoService()
-	arcoAbierto, _ := arcoService.UltimoArcoAbiertoOCerrado()
-	if arcoAbierto {
-		utils.Logger.Info("User logged in with open arco",
-			zap.Uint("user_id", user.UserID),
-		)
-	}
-
 	// Redirigir al dashboard
 	ctx.Redirect(http.StatusFound, "/movimientos")
+}
+
+// ✅ NUEVO: Register - Registro de usuarios
+func (c *AuthController) Register(ctx *gin.Context) {
+	// Si es GET, mostrar página de registro
+	if ctx.Request.Method == "GET" {
+		ctx.File("./Front/register.html")
+		return
+	}
+
+	// POST: Procesar registro
+	email := ctx.PostForm("email")
+	password := ctx.PostForm("password")
+	confirmPassword := ctx.PostForm("confirm_password")
+	fullName := ctx.PostForm("full_name")
+	clientIP := ctx.ClientIP()
+
+	// Validar que las contraseñas coincidan
+	if password != confirmPassword {
+		ctx.Writer.WriteHeader(http.StatusBadRequest)
+		ctx.Writer.Write([]byte(`
+			<html>
+				<head>
+					<meta http-equiv='refresh' content='3;url=/api/register'>
+				</head>
+				<body style="font-family: sans-serif; text-align: center; padding: 50px;">
+					<h2 style="color: #ef4444;">❌ Error</h2>
+					<p>Las contraseñas no coinciden</p>
+					<p style="color: #6b7280;">Redirigiendo...</p>
+				</body>
+			</html>`))
+		return
+	}
+
+	// Validar inputs
+	if err := validators.ValidateLoginRequest(email, password); err != nil {
+		utils.Logger.Warn("Invalid registration attempt",
+			zap.String("email", email),
+			zap.String("ip", clientIP),
+			zap.Error(err),
+		)
+
+		ctx.Writer.WriteHeader(http.StatusBadRequest)
+		ctx.Writer.Write([]byte(`
+			<html>
+				<head>
+					<meta http-equiv='refresh' content='3;url=/api/register'>
+				</head>
+				<body style="font-family: sans-serif; text-align: center; padding: 50px;">
+					<h2 style="color: #ef4444;">❌ Error de Validación</h2>
+					<p>` + err.Error() + `</p>
+					<p style="color: #6b7280;">Redirigiendo...</p>
+				</body>
+			</html>`))
+		return
+	}
+
+	// Validar nombre completo
+	if fullName == "" {
+		ctx.Writer.WriteHeader(http.StatusBadRequest)
+		ctx.Writer.Write([]byte(`
+			<html>
+				<head>
+					<meta http-equiv='refresh' content='3;url=/api/register'>
+				</head>
+				<body style="font-family: sans-serif; text-align: center; padding: 50px;">
+					<h2 style="color: #ef4444;">❌ Error</h2>
+					<p>El nombre completo es requerido</p>
+					<p style="color: #6b7280;">Redirigiendo...</p>
+				</body>
+			</html>`))
+		return
+	}
+
+	// Sanitizar email
+	email, _ = validators.ValidateAndSanitizeEmail(email)
+
+	// Sanitizar nombre
+	fullName = validators.SanitizeString(fullName)
+
+	// Intentar crear usuario
+	user, err := c.authService.Register(email, password, fullName)
+	if err != nil {
+		utils.Logger.Warn("Registration failed",
+			zap.String("email", email),
+			zap.String("ip", clientIP),
+			zap.Error(err),
+		)
+
+		ctx.Writer.WriteHeader(http.StatusBadRequest)
+		ctx.Writer.Write([]byte(`
+			<html>
+				<head>
+					<meta http-equiv='refresh' content='3;url=/api/register'>
+				</head>
+				<body style="font-family: sans-serif; text-align: center; padding: 50px;">
+					<h2 style="color: #ef4444;">❌ Error en el Registro</h2>
+					<p>` + err.Error() + `</p>
+					<p style="color: #6b7280;">Redirigiendo...</p>
+				</body>
+			</html>`))
+		return
+	}
+
+	// Log de registro exitoso
+	utils.Logger.Info("New user registered",
+		zap.Uint("user_id", user.UserID),
+		zap.String("email", user.Email),
+		zap.String("ip", clientIP),
+	)
+
+	// Redirigir al login con mensaje de éxito
+	ctx.Writer.WriteHeader(http.StatusOK)
+	ctx.Writer.Write([]byte(`
+		<html>
+			<head>
+				<meta http-equiv='refresh' content='3;url=/api/login'>
+			</head>
+			<body style="font-family: sans-serif; text-align: center; padding: 50px;">
+				<h2 style="color: #10b981;">✅ Registro Exitoso</h2>
+				<p>Tu cuenta ha sido creada. Redirigiendo al login...</p>
+				<p style="color: #6b7280;">Espera 3 segundos...</p>
+			</body>
+		</html>`))
 }
 
 // setSecureCookies configura las cookies con todos los flags de seguridad

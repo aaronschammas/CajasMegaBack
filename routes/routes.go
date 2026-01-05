@@ -7,6 +7,9 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ulule/limiter/v3"
+	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
+	"github.com/ulule/limiter/v3/drivers/store/memory"
 )
 
 func SetupRoutes(cfg *config.Config) *gin.Engine {
@@ -20,7 +23,12 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 	// Middleware de seguridad y CORS
 	r.Use(corsMiddleware(cfg))
 	r.Use(securityHeadersMiddleware())
-	r.Use(rateLimitMiddleware(cfg))
+	r.Use(rateLimitMiddleware(cfg)) // ✅ ACTIVADO
+
+	// CSRF solo en producción (opcional pero recomendado)
+	if cfg.EnableCSRF && cfg.IsProduction() {
+		r.Use(middleware.CSRFMiddleware(cfg.JWTSecret))
+	}
 
 	// Controladores
 	authController := controllers.NewAuthController()
@@ -38,22 +46,32 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 		c.File("./Front/index.html")
 	})
 
-	// Health check endpoint (útil para monitoreo y load balancers)
+	// Health check endpoint
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status":      "ok",
 			"environment": cfg.Environment,
-			"version":     "1.0.0",
+			"version":     "2.0.1",
 		})
 	})
 
-	// Rutas públicas
+	// Rutas públicas con rate limiting específico
 	public := r.Group("/api")
 	{
 		public.GET("/login", func(c *gin.Context) {
 			c.File("./Front/index.html")
 		})
-		public.POST("/login", authController.Login)
+
+		// ✅ Rate limiting específico para login
+		loginLimiter := middleware.LoginRateLimitMiddleware()
+		public.POST("/login", loginLimiter, authController.Login)
+
+		// ✅ NUEVO: Rutas de registro
+		public.GET("/register", func(c *gin.Context) {
+			c.File("./Front/register.html")
+		})
+		public.POST("/register", loginLimiter, authController.Register)
+
 		public.GET("/graficos", controllers.GraficosAPIHandler)
 	}
 
@@ -83,9 +101,37 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 		protected.GET("/api/movimientos/arco/:arco_id", movementController.GetMovementsByArcoID)
 		protected.DELETE("/api/movimientos/:movement_id", movementController.DeleteMovement)
 		protected.GET("/reporte", controllers.MostrarPaginaReportes)
+
+		// ✅ NUEVO: Cambio de contraseña
+		protected.POST("/api/change-password", authController.ChangePassword)
 	}
 
 	return r
+}
+
+// ✅ CORREGIDO: Rate limiting real implementado
+func rateLimitMiddleware(cfg *config.Config) gin.HandlerFunc {
+	rate := limiter.Rate{
+		Period: cfg.RateLimitDuration,
+		Limit:  int64(cfg.RateLimitRequests),
+	}
+
+	store := memory.NewStore()
+	instance := limiter.New(store, rate)
+
+	middleware := mgin.NewMiddleware(instance)
+
+	return func(c *gin.Context) {
+		middleware(c)
+
+		// Si excede el límite, loggear
+		if c.IsAborted() {
+			// El middleware ya abortó, solo loggeamos
+			c.JSON(429, gin.H{
+				"error": "Demasiadas peticiones. Intenta más tarde.",
+			})
+		}
+	}
 }
 
 // corsMiddleware configura CORS según la configuración
@@ -137,17 +183,6 @@ func securityHeadersMiddleware() gin.HandlerFunc {
 		// Política de referrer
 		c.Writer.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
-		c.Next()
-	}
-}
-
-// rateLimitMiddleware implementa rate limiting básico
-func rateLimitMiddleware(cfg *config.Config) gin.HandlerFunc {
-	// Implementación simplificada - en producción usar redis o similar
-	// Por ahora solo logueamos si se alcanza el límite
-	return func(c *gin.Context) {
-		// TODO: Implementar rate limiting real con Redis
-		// Por ahora solo pasamos la solicitud
 		c.Next()
 	}
 }
