@@ -67,6 +67,14 @@ func LoadConfig() *Config {
 
 	envFinal := getEnv("APP_ENV", "development")
 
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		if envFinal == "production" {
+			log.Fatal("JWT_SECRET debe estar configurado en producción")
+		}
+		jwtSecret = generateSecureSecret(envFinal)
+	}
+
 	// Si estamos en development, ya se cargó .env; si estamos en production,
 	// asumimos systemd o entorno ya puso variables.
 	config := &Config{
@@ -85,7 +93,7 @@ func LoadConfig() *Config {
 		DBCharset:  getEnv("DB_CHARSET", "utf8mb4"),
 
 		// Seguridad
-		JWTSecret:          getEnv("JWT_SECRET", generateSecureSecret(envFinal)),
+		JWTSecret:          jwtSecret,
 		JWTExpirationHours: getEnvAsInt("JWT_EXPIRATION_HOURS", 24),
 		PasswordSaltRounds: getEnvAsInt("PASSWORD_SALT_ROUNDS", 12),
 
