@@ -20,7 +20,7 @@ var DB *gorm.DB
 func InitDB() {
 	cfg := config.AppConfig
 	if cfg == nil {
-		log.Fatal("❌ Config no inicializado. Llama config.LoadConfig() primero.")
+		log.Fatal("Config no inicializado. Llama config.LoadConfig() primero.")
 	}
 
 	// Configurar logger de GORM según el entorno
@@ -44,7 +44,7 @@ func InitDB() {
 
 	// Validar nombre de base de datos
 	if err := validateDBName(dbName); err != nil {
-		log.Fatal("❌ Nombre de base de datos inválido:", err)
+		log.Fatal("Nombre de base de datos inválido:", err)
 	}
 
 	// Abrir conexión al servidor
@@ -52,12 +52,12 @@ func InitDB() {
 		Logger: gormLogger,
 	})
 	if err != nil {
-		log.Fatal("❌ Error al conectar con el servidor de base de datos:", err)
+		log.Fatal("Error al conectar con el servidor de base de datos:", err)
 	}
 
 	// Verificar y crear base de datos si no existe
 	if err := ensureDatabaseExists(serverDB, dbName); err != nil {
-		log.Fatal("❌ Error al verificar/crear base de datos:", err)
+		log.Fatal("Error al verificar/crear base de datos:", err)
 	}
 
 	// Conectar a la base de datos específica
@@ -66,30 +66,30 @@ func InitDB() {
 		Logger: gormLogger,
 	})
 	if err != nil {
-		log.Fatal("❌ Error al conectar con la base de datos:", err)
+		log.Fatal("Error al conectar con la base de datos:", err)
 	}
 
 	// Configurar pool de conexiones
 	if err := configureConnectionPool(DB); err != nil {
-		log.Fatal("❌ Error al configurar pool de conexiones:", err)
+		log.Fatal("Error al configurar pool de conexiones:", err)
 	}
 
 	// Ejecutar migraciones
 	if err := runMigrations(DB); err != nil {
-		log.Fatal("❌ Error en las migraciones:", err)
+		log.Fatal("Error en las migraciones:", err)
 	}
 
 	// Crear vista de saldo de arqueos
 	if err := createSaldoArqueosView(DB); err != nil {
-		log.Fatal("❌ Error al crear vista de saldo de arqueos:", err)
+		log.Fatal("Error al crear vista de saldo de arqueos:", err)
 	}
 
 	// Crear datos iniciales
 	if err := seedInitialData(DB, cfg); err != nil {
-		log.Fatal("❌ Error al crear datos iniciales:", err)
+		log.Fatal("Error al crear datos iniciales:", err)
 	}
 
-	log.Println("✅ Base de datos inicializada correctamente")
+	log.Println("Base de datos inicializada correctamente")
 }
 
 // validateDBName valida que el nombre de la base de datos sea seguro
@@ -127,9 +127,9 @@ func ensureDatabaseExists(serverDB *gorm.DB, dbName string) error {
 		if err := serverDB.Exec(createStmt).Error; err != nil {
 			return fmt.Errorf("error al crear BD: %w", err)
 		}
-		log.Printf("✅ Base de datos '%s' creada\n", dbName)
+		log.Printf("Base de datos '%s' creada\n", dbName)
 	} else {
-		log.Printf("ℹ️  Base de datos '%s' ya existe\n", dbName)
+		log.Printf("Base de datos '%s' ya existe\n", dbName)
 	}
 
 	return nil
@@ -172,7 +172,7 @@ func runMigrations(db *gorm.DB) error {
 		&models.SpecificExpense{},
 	}
 
-	log.Println("🔄 Ejecutando migraciones...")
+	log.Println("Ejecutando migraciones...")
 
 	for _, model := range models {
 		if err := db.AutoMigrate(model); err != nil {
@@ -180,7 +180,7 @@ func runMigrations(db *gorm.DB) error {
 		}
 	}
 
-	log.Println("✅ Migraciones completadas")
+	log.Println("Migraciones completadas")
 	return nil
 }
 
@@ -215,7 +215,7 @@ func createSaldoArqueosView(db *gorm.DB) error {
 		return fmt.Errorf("error al crear vista: %w", err)
 	}
 
-	log.Println("✅ Vista 'vista_saldo_arqueos' actualizada")
+	log.Println("Vista 'vista_saldo_arqueos' actualizada")
 	return nil
 }
 
@@ -257,12 +257,12 @@ func createDefaultRoles(db *gorm.DB) error {
 				if err := db.Create(&role).Error; err != nil {
 					return fmt.Errorf("error al crear rol '%s': %w", role.RoleName, err)
 				}
-				log.Printf("✅ Rol '%s' creado\n", role.RoleName)
+				log.Printf("Rol '%s' creado\n", role.RoleName)
 			} else {
 				return result.Error
 			}
 		} else {
-			log.Printf("ℹ️  Rol '%s' ya existe\n", role.RoleName)
+			log.Printf("Rol '%s' ya existe\n", role.RoleName)
 		}
 	}
 
@@ -289,7 +289,7 @@ func createAdminUser(db *gorm.DB, cfg *config.Config) error {
 				return errors.New("DEFAULT_ADMIN_PASSWORD debe estar configurado en producción")
 			}
 			adminPassword = "admin123456" // Solo para desarrollo
-			log.Println("⚠️  ADVERTENCIA: Usando password por defecto para admin (solo desarrollo)")
+			log.Println("ADVERTENCIA: Usando password por defecto para admin (solo desarrollo)")
 		}
 	}
 
@@ -327,17 +327,17 @@ func createAdminUser(db *gorm.DB, cfg *config.Config) error {
 				return fmt.Errorf("error al crear usuario admin: %w", err)
 			}
 
-			log.Printf("✅ Usuario admin creado: %s\n", adminEmail)
+			log.Printf("Usuario admin creado: %s\n", adminEmail)
 
 			// Solo mostrar password en desarrollo
 			if !cfg.IsProduction() {
-				log.Printf("🔑 Password: %s\n", adminPassword)
+				log.Printf("Password: %s\n", adminPassword)
 			}
 		} else {
 			return result.Error
 		}
 	} else {
-		log.Printf("ℹ️  Usuario admin '%s' ya existe\n", adminEmail)
+		log.Printf("Usuario admin '%s' ya existe\n", adminEmail)
 	}
 
 	return nil
@@ -350,7 +350,7 @@ func createDefaultConcepts(db *gorm.DB) error {
 	db.Model(&models.ConceptType{}).Count(&conceptCount)
 
 	if conceptCount > 0 {
-		log.Printf("ℹ️  Ya existen %d conceptos en el sistema\n", conceptCount)
+		log.Printf("Ya existen %d conceptos en el sistema\n", conceptCount)
 		return nil
 	}
 
@@ -407,7 +407,7 @@ func createDefaultConcepts(db *gorm.DB) error {
 		}
 	}
 
-	log.Printf("✅ %d conceptos básicos creados\n", len(concepts))
+	log.Printf("%d conceptos básicos creados\n", len(concepts))
 	return nil
 }
 

@@ -62,8 +62,15 @@ type Config struct {
 var AppConfig *Config
 
 func LoadConfig() *Config {
-
-	_ = godotenv.Load() // intentamos cargar, si no existe, sigue (no fatal)
+	// Intentar cargar el archivo .env si existe (solo en desarrollo)
+	env := os.Getenv("APP_ENV")
+	if env == "" || env == "development" {
+		if err := godotenv.Load(); err != nil {
+			log.Println("No se encontró archivo .env, usando variables de entorno del sistema")
+		} else {
+			log.Println("Archivo .env cargado correctamente")
+		}
+	}
 
 	envFinal := getEnv("APP_ENV", "development")
 
@@ -118,12 +125,59 @@ func LoadConfig() *Config {
 	// Validaciones críticas para producción
 	if config.Environment == "production" {
 		if err := config.validateProductionConfig(); err != nil {
-			log.Fatal("❌ ERRORES DE CONFIGURACIÓN PARA PRODUCCIÓN:\n", err)
+			log.Fatal(" ERRORES DE CONFIGURACIÓN PARA PRODUCCIÓN:\n", err)
 		}
 	}
 
 	AppConfig = config
 	return config
+}
+
+// validateProductionConfig valida que la configuración sea segura para producción
+func (c *Config) validateProductionConfig() error {
+	errors := []string{}
+
+	// JWT Secret debe ser fuerte en producción
+	if len(c.JWTSecret) < 64 {
+		errors = append(errors, "JWT_SECRET debe tener al menos 64 caracteres en producción")
+	}
+
+	// La contraseña de base de datos no debe ser la predeterminada
+	weakPasswords := []string{"12345", "root", "password", "admin", ""}
+	for _, weak := range weakPasswords {
+		if c.DBPassword == weak {
+			errors = append(errors, "DB_PASSWORD debe ser una contraseña segura en producción")
+			break
+		}
+	}
+
+	// Usuario de BD no debe ser root
+	if c.DBUser == "root" {
+		errors = append(errors, "DB_USER no debe ser 'root' en producción")
+	}
+
+	// CORS no debe permitir todos los orígenes
+	if len(c.AllowedOrigins) == 1 && c.AllowedOrigins[0] == "*" {
+		errors = append(errors, "CORS no debe permitir todos los orígenes (*) en producción")
+	}
+
+	// JWT expiration debe ser razonable
+	if c.JWTExpirationHours > 168 { // 7 días
+		log.Println("ADVERTENCIA: JWT_EXPIRATION_HOURS es muy alto (>7 días)")
+	}
+
+	// Password salt rounds debe ser suficiente
+	if c.PasswordSaltRounds < 12 {
+		errors = append(errors, "PASSWORD_SALT_ROUNDS debe ser al menos 12 en producción")
+	}
+
+	// Si hay errores críticos, retornarlos
+	if len(errors) > 0 {
+		return fmt.Errorf("%s", strings.Join(errors, "\n"))
+	}
+
+	log.Println("Configuración validada para producción")
+	return nil
 }
 
 // GetDSN retorna el Data Source Name para la conexión a MySQL
@@ -206,10 +260,10 @@ func getAllowedOrigins(env string) []string {
 
 	if env == "production" {
 		if originsStr == "" {
-			log.Fatal("❌ ALLOWED_ORIGINS debe estar configurado en producción")
+			log.Fatal("ALLOWED_ORIGINS debe estar configurado en producción")
 		}
 		if originsStr == "*" {
-			log.Fatal("❌ ALLOWED_ORIGINS no puede ser '*' en producción")
+			log.Fatal("ALLOWED_ORIGINS no puede ser '*' en producción")
 		}
 		return strings.Split(originsStr, ",")
 	}
@@ -229,10 +283,10 @@ func getAllowedOrigins(env string) []string {
 // generateSecureSecret genera un secret seguro
 func generateSecureSecret(env string) string {
 	if env == "production" {
-		log.Fatal("❌ JWT_SECRET debe estar configurado en producción. No se puede usar un valor generado automáticamente.")
+		log.Fatal("JWT_SECRET debe estar configurado en producción. No se puede usar un valor generado automáticamente.")
 	}
 
-	log.Println("⚠️  ADVERTENCIA: Generando JWT_SECRET temporal para desarrollo. NO USAR EN PRODUCCIÓN")
+	log.Println("ADVERTENCIA: Generando JWT_SECRET temporal para desarrollo. NO USAR EN PRODUCCIÓN")
 
 	// Generar 64 bytes aleatorios
 	b := make([]byte, 64)
@@ -246,9 +300,9 @@ func generateSecureSecret(env string) string {
 // getDefaultDBPassword retorna una contraseña por defecto según el entorno
 func getDefaultDBPassword(env string) string {
 	if env == "production" {
-		log.Fatal("❌ DB_PASSWORD debe estar configurado en producción")
+		log.Fatal("DB_PASSWORD debe estar configurado en producción")
 	}
-	log.Println("⚠️  Usando contraseña de BD por defecto (solo desarrollo)")
+	log.Println("Usando contraseña de BD por defecto (solo desarrollo)")
 	return "12345"
 }
 
@@ -258,36 +312,4 @@ func getDefaultLogLevel(env string) string {
 		return "info"
 	}
 	return "debug"
-}
-
-// validateProductionConfig valida configuraciones críticas para producción
-func (c *Config) validateProductionConfig() error {
-	var errors []string
-
-	// Validar DB_PASSWORD
-	if c.DBPassword == "12345" || c.DBPassword == "" {
-		errors = append(errors, "DB_PASSWORD debe estar configurado y no puede ser el valor por defecto")
-	}
-
-	// Validar JWT_SECRET (asumiendo que si es generado, contiene base64, pero mejor verificar si no está en env)
-	// Pero como ya se valida en generateSecureSecret, quizás no necesario, pero para consistencia
-	if strings.Contains(c.JWTSecret, "base64") { // simple check, but actually it's base64 encoded
-		errors = append(errors, "JWT_SECRET debe estar configurado manualmente en producción")
-	}
-
-	// Validar ALLOWED_ORIGINS ya se hace en getAllowedOrigins, pero aquí podemos reforzar
-	if len(c.AllowedOrigins) == 0 {
-		errors = append(errors, "ALLOWED_ORIGINS debe estar configurado")
-	}
-
-	// Validar otros campos críticos si es necesario
-	if c.CreateDefaultAdmin {
-		errors = append(errors, "CREATE_DEFAULT_ADMIN debe ser false en producción")
-	}
-
-	if len(errors) > 0 {
-		return fmt.Errorf(strings.Join(errors, "; "))
-	}
-
-	return nil
 }
