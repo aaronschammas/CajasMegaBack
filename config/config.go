@@ -67,9 +67,9 @@ func LoadConfig() *Config {
 	env := os.Getenv("APP_ENV")
 	if env == "" || env == "development" {
 		if err := godotenv.Load(); err != nil {
-			log.Println("⚠️  No se encontró archivo .env, usando variables de entorno del sistema")
+			log.Println("No se encontró archivo .env, usando variables de entorno del sistema")
 		} else {
-			log.Println("✅ Archivo .env cargado correctamente")
+			log.Println("Archivo .env cargado correctamente")
 		}
 	}
 
@@ -122,7 +122,7 @@ func LoadConfig() *Config {
 	// Validaciones críticas para producción
 	if config.Environment == "production" {
 		if err := config.validateProductionConfig(); err != nil {
-			log.Fatal("❌ ERRORES DE CONFIGURACIÓN PARA PRODUCCIÓN:\n", err)
+			log.Fatal(" ERRORES DE CONFIGURACIÓN PARA PRODUCCIÓN:\n", err)
 		}
 	}
 
@@ -160,7 +160,7 @@ func (c *Config) validateProductionConfig() error {
 
 	// JWT expiration debe ser razonable
 	if c.JWTExpirationHours > 168 { // 7 días
-		log.Println("⚠️  ADVERTENCIA: JWT_EXPIRATION_HOURS es muy alto (>7 días)")
+		log.Println("ADVERTENCIA: JWT_EXPIRATION_HOURS es muy alto (>7 días)")
 	}
 
 	// Password salt rounds debe ser suficiente
@@ -173,7 +173,7 @@ func (c *Config) validateProductionConfig() error {
 		return fmt.Errorf("%s", strings.Join(errors, "\n"))
 	}
 
-	log.Println("✅ Configuración validada para producción")
+	log.Println("Configuración validada para producción")
 	return nil
 }
 
@@ -257,10 +257,10 @@ func getAllowedOrigins(env string) []string {
 
 	if env == "production" {
 		if originsStr == "" {
-			log.Fatal("❌ ALLOWED_ORIGINS debe estar configurado en producción")
+			log.Fatal("ALLOWED_ORIGINS debe estar configurado en producción")
 		}
 		if originsStr == "*" {
-			log.Fatal("❌ ALLOWED_ORIGINS no puede ser '*' en producción")
+			log.Fatal("ALLOWED_ORIGINS no puede ser '*' en producción")
 		}
 		return strings.Split(originsStr, ",")
 	}
@@ -280,10 +280,10 @@ func getAllowedOrigins(env string) []string {
 // generateSecureSecret genera un secret seguro
 func generateSecureSecret(env string) string {
 	if env == "production" {
-		log.Fatal("❌ JWT_SECRET debe estar configurado en producción. No se puede usar un valor generado automáticamente.")
+		log.Fatal("JWT_SECRET debe estar configurado en producción. No se puede usar un valor generado automáticamente.")
 	}
 
-	log.Println("⚠️  ADVERTENCIA: Generando JWT_SECRET temporal para desarrollo. NO USAR EN PRODUCCIÓN")
+	log.Println("ADVERTENCIA: Generando JWT_SECRET temporal para desarrollo. NO USAR EN PRODUCCIÓN")
 
 	// Generar 64 bytes aleatorios
 	b := make([]byte, 64)
@@ -297,9 +297,9 @@ func generateSecureSecret(env string) string {
 // getDefaultDBPassword retorna una contraseña por defecto según el entorno
 func getDefaultDBPassword(env string) string {
 	if env == "production" {
-		log.Fatal("❌ DB_PASSWORD debe estar configurado en producción")
+		log.Fatal("DB_PASSWORD debe estar configurado en producción")
 	}
-	log.Println("⚠️  Usando contraseña de BD por defecto (solo desarrollo)")
+	log.Println("Usando contraseña de BD por defecto (solo desarrollo)")
 	return "12345"
 }
 
