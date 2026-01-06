@@ -62,15 +62,8 @@ type Config struct {
 var AppConfig *Config
 
 func LoadConfig() *Config {
-	// Intentar cargar el archivo .env si existe (solo en desarrollo)
-	env := os.Getenv("APP_ENV")
-	if env == "" || env == "development" {
-		if err := godotenv.Load(); err != nil {
-			log.Println("No se encontró archivo .env, usando variables de entorno del sistema")
-		} else {
-			log.Println("Archivo .env cargado correctamente")
-		}
-	}
+
+	_ = godotenv.Load() // intentamos cargar, si no existe, sigue (no fatal)
 
 	envFinal := getEnv("APP_ENV", "development")
 
@@ -125,7 +118,7 @@ func LoadConfig() *Config {
 	// Validaciones críticas para producción
 	if config.Environment == "production" {
 		if err := config.validateProductionConfig(); err != nil {
-			log.Fatal(" ERRORES DE CONFIGURACIÓN PARA PRODUCCIÓN:\n", err)
+			log.Fatal("❌ ERRORES DE CONFIGURACIÓN PARA PRODUCCIÓN:\n", err)
 		}
 	}
 
