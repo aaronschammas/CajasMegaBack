@@ -293,7 +293,7 @@ func generateSecureSecret(env string) string {
 // getDefaultDBPassword retorna una contraseña por defecto según el entorno
 func getDefaultDBPassword(env string) string {
 	if env == "production" {
-		log.Fatal("DB_PASSWORD debe estar configurado en producción")
+		log.Fatal("DB_PASSWORD debe estar configurado en producción (la concha bien puta de tu madre con este error de mierda)")
 	}
 	log.Println("Usando contraseña de BD por defecto (solo desarrollo)")
 	return "12345"
