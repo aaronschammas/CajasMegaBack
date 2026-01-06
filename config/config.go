@@ -139,7 +139,7 @@ func (c *Config) validateProductionConfig() error {
 	weakPasswords := []string{"12345", "root", "password", "admin", ""}
 	for _, weak := range weakPasswords {
 		if c.DBPassword == weak {
-			errors = append(errors, "DB_PASSWORD debe ser una contraseña segura en producción")
+			errors = append(errors, "DB_PASSWORD debe ser una contraseña segura en producción (por favor que no salga este error)")
 			break
 		}
 	}
@@ -289,15 +289,6 @@ func generateSecureSecret(env string) string {
 
 	return base64.StdEncoding.EncodeToString(b)
 }
-
-// getDefaultDBPassword retorna una contraseña por defecto según el entorno
-/*func getDefaultDBPassword(env string) string {
-	if env == "production" {
-		log.Fatal("DB_PASSWORD debe estar configurado en producción (la concha bien puta de tu madre con este error de mierda)")
-	}
-	log.Println("Usando contraseña de BD por defecto (solo desarrollo)")
-	return "12345"
-}*/
 
 // getDefaultLogLevel retorna el nivel de log por defecto según el entorno
 func getDefaultLogLevel(env string) string {
