@@ -80,7 +80,7 @@ func LoadConfig() *Config {
 		DBHost:     getEnv("DB_HOST", "127.0.0.1"),
 		DBPort:     getEnv("DB_PORT", "3306"),
 		DBUser:     getEnv("DB_USER", "root"),
-		DBPassword: getEnv("DB_PASSWORD", getDefaultDBPassword(envFinal)),
+		DBPassword: getEnv("DB_PASSWORD", ""),
 		DBName:     getEnv("DB_NAME", "fuerte_caja"),
 		DBCharset:  getEnv("DB_CHARSET", "utf8mb4"),
 
@@ -291,13 +291,13 @@ func generateSecureSecret(env string) string {
 }
 
 // getDefaultDBPassword retorna una contraseña por defecto según el entorno
-func getDefaultDBPassword(env string) string {
+/*func getDefaultDBPassword(env string) string {
 	if env == "production" {
 		log.Fatal("DB_PASSWORD debe estar configurado en producción (la concha bien puta de tu madre con este error de mierda)")
 	}
 	log.Println("Usando contraseña de BD por defecto (solo desarrollo)")
 	return "12345"
-}
+}*/
 
 // getDefaultLogLevel retorna el nivel de log por defecto según el entorno
 func getDefaultLogLevel(env string) string {
