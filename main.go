@@ -15,18 +15,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
-
 	"go.uber.org/zap"
 )
 
 func main() {
 	// Banner de inicio
 	printBanner()
-
-	if err := godotenv.Load(); err != nil {
-		log.Println(" No se pudo cargar .env (puede ser normal en prod)")
-	}
 
 	// 1. Cargar configuración
 	cfg := config.LoadConfig()
@@ -84,11 +78,11 @@ func main() {
 				check   bool
 				message string
 			}{
-				{len(cfg.JWTSecret) >= 64, "✅ JWT_SECRET tiene longitud adecuada (≥64)"},
-				{cfg.EnableCSRF, "✅ CSRF Protection habilitado"},
-				{cfg.EnableRateLimit, "✅ Rate Limiting habilitado"},
-				{cfg.AllowedOrigins[0] != "*", "✅ CORS configurado con orígenes específicos"},
-				{cfg.DBUser != "root", "✅ Usuario de BD no es root"},
+				{len(cfg.JWTSecret) >= 64, " JWT_SECRET tiene longitud adecuada (≥64)"},
+				{cfg.EnableCSRF, "CSRF Protection habilitado"},
+				{cfg.EnableRateLimit, " Rate Limiting habilitado"},
+				{cfg.AllowedOrigins[0] != "*", "CORS configurado con orígenes específicos"},
+				{cfg.DBUser != "root", "Usuario de BD no es root"},
 			}
 
 			for _, item := range checkList {

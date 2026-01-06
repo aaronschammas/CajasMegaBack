@@ -7,7 +7,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// HandleDBError maneja errores de base de datos de forma segura
 // NO expone detalles internos al cliente
 func HandleDBError(ctx *gin.Context, err error, operation string) {
 	Logger.Error("Database error",
