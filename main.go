@@ -94,31 +94,16 @@ func main() {
 			}
 
 			utils.Logger.Info("📋 Recordatorios de seguridad:")
-			utils.Logger.Info("   - Usar HTTPS (reverse proxy como Nginx)")
+			utils.Logger.Info("   - HTTPS gestionado por reverse proxy (Nginx)")
 			utils.Logger.Info("   - Configurar firewall")
 			utils.Logger.Info("   - Tener backups automáticos de BD")
 			utils.Logger.Info("   - Monitorear logs y métricas")
 			utils.Logger.Info("   - Rotar JWT_SECRET periódicamente")
 
-			// ✅ CORREGIDO: Forzar HTTPS en producción
-			certFile := os.Getenv("SSL_CERT_FILE")
-			keyFile := os.Getenv("SSL_KEY_FILE")
-
-			if certFile == "" || keyFile == "" {
-				utils.Logger.Fatal("🔒 CERTIFICADOS SSL REQUERIDOS EN PRODUCCIÓN",
-					zap.String("ssl_cert_file", "SSL_CERT_FILE no configurado"),
-					zap.String("ssl_key_file", "SSL_KEY_FILE no configurado"),
-					zap.String("instruccion", "Configura SSL_CERT_FILE y SSL_KEY_FILE en .env o usa reverse proxy (Nginx)"),
-				)
-			}
-
-			utils.Logger.Info("🔒 Iniciando servidor HTTPS",
-				zap.String("cert", certFile),
-			)
-			serverErrors <- server.ListenAndServeTLS(certFile, keyFile)
+			// ✅ PRODUCCIÓN: HTTP interno (TLS lo maneja Nginx)
+			serverErrors <- server.ListenAndServe()
 		} else {
 			utils.Logger.Info("⚠️  Modo DESARROLLO - HTTP sin cifrado")
-			utils.Logger.Info("   Algunas características de seguridad reducidas")
 			serverErrors <- server.ListenAndServe()
 		}
 	}()
