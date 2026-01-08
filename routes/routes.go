@@ -122,6 +122,7 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 	return r
 }
 
+// Rate limiting
 func rateLimitMiddleware(cfg *config.Config) gin.HandlerFunc {
 	rate := limiter.Rate{
 		Period: cfg.RateLimitDuration,
