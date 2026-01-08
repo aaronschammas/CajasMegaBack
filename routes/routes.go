@@ -6,6 +6,8 @@ import (
 	"caja-fuerte/middleware"
 	"strings"
 
+	"github.com/gin-contrib/sessions"        // <-- NUEVO
+	"github.com/gin-contrib/sessions/cookie" // <-- NUEVO
 	"github.com/gin-gonic/gin"
 	"github.com/ulule/limiter/v3"
 	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
@@ -20,12 +22,21 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 
 	r := gin.Default()
 
-	// Middleware de seguridad y CORS
+	// =========================================================
+	// 1. CONFIGURACIÓN DE SESIONES (Indispensable para CSRF)
+	// =========================================================
+	// Usamos JWTSecret como llave para firmar las cookies de sesión
+	store := cookie.NewStore([]byte(cfg.JWTSecret))
+	r.Use(sessions.Sessions("megacajas_session", store))
+
+	// =========================================================
+	// 2. MIDDLEWARES DE SEGURIDAD Y FILTROS
+	// =========================================================
 	r.Use(corsMiddleware(cfg))
 	r.Use(securityHeadersMiddleware())
-	r.Use(rateLimitMiddleware(cfg)) // ✅ ACTIVADO
+	r.Use(rateLimitMiddleware(cfg))
 
-	// CSRF solo en producción (opcional pero recomendado)
+	// CSRF: Ahora funcionará correctamente porque ya existe una sesión
 	if cfg.EnableCSRF && cfg.IsProduction() {
 		r.Use(middleware.CSRFMiddleware(cfg.JWTSecret))
 	}
@@ -35,7 +46,7 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 	movementController := controllers.NewMovementController()
 	arcoController := controllers.NewArcoController()
 
-	// Archivos estáticos
+	// Archivos estáticos (Mantenidos como respaldo de Nginx)
 	r.Static("/css", "./Front/css")
 	r.Static("/js", "./Front/js")
 	r.Static("/static", "./static")
@@ -55,18 +66,16 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 		})
 	})
 
-	// Rutas públicas con rate limiting específico
+	// Rutas públicas
 	public := r.Group("/api")
 	{
 		public.GET("/login", func(c *gin.Context) {
 			c.File("./Front/index.html")
 		})
 
-		// ✅ Rate limiting específico para login
 		loginLimiter := middleware.LoginRateLimitMiddleware()
 		public.POST("/login", loginLimiter, authController.Login)
 
-		// ✅ NUEVO: Rutas de registro
 		public.GET("/register", func(c *gin.Context) {
 			c.File("./Front/register.html")
 		})
@@ -88,13 +97,11 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 		protected.POST("/ingresos", movementController.CreateBatch)
 		protected.POST("/abrir-caja", movementController.AbrirCaja)
 
-		// Rutas de Arco
 		protected.POST("/arco/abrir", arcoController.AbrirArco)
 		protected.POST("/arco/cerrar", arcoController.CerrarArco)
 		protected.GET("/arco/estado", controllers.ArcoEstadoHandler)
 		protected.POST("/arco/abrir-avanzado", arcoController.AbrirArcoAvanzado)
 
-		// Rutas de API
 		protected.GET("/api/me", controllers.MeHandler)
 		protected.GET("/api/saldo-ultimo-arco", controllers.SaldoUltimoArcoHandler)
 		protected.GET("/api/arco-estado", controllers.EstadoArcoAPIHandler)
@@ -102,10 +109,8 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 		protected.DELETE("/api/movimientos/:movement_id", movementController.DeleteMovement)
 		protected.GET("/reporte", controllers.MostrarPaginaReportes)
 
-		// ✅ NUEVO: Cambio de contraseña
 		protected.POST("/api/change-password", authController.ChangePassword)
 
-		// Rutas para registro de usuarios y roles
 		protected.GET("/registro_usuarios", func(c *gin.Context) {
 			c.File("./Front/registro_usuarios.html")
 		})
@@ -117,7 +122,6 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 	return r
 }
 
-// ✅ CORREGIDO: Rate limiting real implementado
 func rateLimitMiddleware(cfg *config.Config) gin.HandlerFunc {
 	rate := limiter.Rate{
 		Period: cfg.RateLimitDuration,
