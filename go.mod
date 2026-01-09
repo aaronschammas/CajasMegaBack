@@ -21,7 +21,7 @@ require (
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/dchest/uniuri v0.0.0-20160212164326-8902c56451e9 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
-	github.com/gin-contrib/sessions v0.0.0-20190101140330-dc5246754963 // indirect
+	github.com/gin-contrib/sessions v0.0.0-20190101140330-dc5246754963 // direct
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect

@@ -123,6 +123,24 @@ body {
   flex-direction: column;
   gap: 2rem;
 }
+/*Cosa pa el registro*/
+.badge {
+          padding: 0.25rem 0.75rem;
+          border-radius: 1rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+        .badge-success { background: rgba(16, 185, 129, 0.1); color: #059669; }
+        .badge-danger { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+        .badge-primary { background: rgba(37, 99, 235, 0.1); color: #1d4ed8; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content-sm { max-width: 400px; }
+        .btn { padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.2s; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+        .password-display { background: #f3f4f6; padding: 0.75rem; border-radius: 0.5rem; margin-top: 0.5rem; font-family: monospace; }
+
+
 
 /* PAGE HEADER */
 .page-header {

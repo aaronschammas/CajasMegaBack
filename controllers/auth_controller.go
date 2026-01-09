@@ -42,18 +42,8 @@ func (c *AuthController) Login(ctx *gin.Context) {
 			zap.Error(err),
 		)
 
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
-		ctx.Writer.Write([]byte(`
-			<html>
-				<head>
-					<meta http-equiv='refresh' content='3;url=/api/login'>
-				</head>
-				<body style="font-family: sans-serif; text-align: center; padding: 50px;">
-					<h2 style="color: #ef4444;">❌ Error de Validación</h2>
-					<p>` + err.Error() + `</p>
-					<p style="color: #6b7280;">Redirigiendo...</p>
-				</body>
-			</html>`))
+		// Redirigir de vuelta al login con error en query param
+		ctx.Redirect(http.StatusFound, "/api/login?error="+err.Error())
 		return
 	}
 
@@ -66,18 +56,8 @@ func (c *AuthController) Login(ctx *gin.Context) {
 		// Log de intento fallido
 		utils.LogAuthAttempt(email, false, clientIP)
 
-		ctx.Writer.WriteHeader(http.StatusUnauthorized)
-		ctx.Writer.Write([]byte(`
-			<html>
-				<head>
-					<meta http-equiv='refresh' content='3;url=/api/login'>
-				</head>
-				<body style="font-family: sans-serif; text-align: center; padding: 50px;">
-					<h2 style="color: #ef4444;">❌ Credenciales Inválidas</h2>
-					<p>Email o contraseña incorrectos</p>
-					<p style="color: #6b7280;">Redirigiendo...</p>
-				</body>
-			</html>`))
+		// Redirigir de vuelta al login con error
+		ctx.Redirect(http.StatusFound, "/api/login?error=Credenciales+invalidas")
 		return
 	}
 
@@ -96,7 +76,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	ctx.Redirect(http.StatusFound, "/movimientos")
 }
 
-// ✅ NUEVO: Register - Registro de usuarios
+// Register - Registro de usuarios
 func (c *AuthController) Register(ctx *gin.Context) {
 	// Si es GET, mostrar página de registro
 	if ctx.Request.Method == "GET" {
@@ -113,18 +93,7 @@ func (c *AuthController) Register(ctx *gin.Context) {
 
 	// Validar que las contraseñas coincidan
 	if password != confirmPassword {
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
-		ctx.Writer.Write([]byte(`
-			<html>
-				<head>
-					<meta http-equiv='refresh' content='3;url=/api/register'>
-				</head>
-				<body style="font-family: sans-serif; text-align: center; padding: 50px;">
-					<h2 style="color: #ef4444;">❌ Error</h2>
-					<p>Las contraseñas no coinciden</p>
-					<p style="color: #6b7280;">Redirigiendo...</p>
-				</body>
-			</html>`))
+		ctx.Redirect(http.StatusFound, "/api/register?error=Las+contraseñas+no+coinciden")
 		return
 	}
 
@@ -136,35 +105,13 @@ func (c *AuthController) Register(ctx *gin.Context) {
 			zap.Error(err),
 		)
 
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
-		ctx.Writer.Write([]byte(`
-			<html>
-				<head>
-					<meta http-equiv='refresh' content='3;url=/api/register'>
-				</head>
-				<body style="font-family: sans-serif; text-align: center; padding: 50px;">
-					<h2 style="color: #ef4444;">❌ Error de Validación</h2>
-					<p>` + err.Error() + `</p>
-					<p style="color: #6b7280;">Redirigiendo...</p>
-				</body>
-			</html>`))
+		ctx.Redirect(http.StatusFound, "/api/register?error="+err.Error())
 		return
 	}
 
 	// Validar nombre completo
 	if fullName == "" {
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
-		ctx.Writer.Write([]byte(`
-			<html>
-				<head>
-					<meta http-equiv='refresh' content='3;url=/api/register'>
-				</head>
-				<body style="font-family: sans-serif; text-align: center; padding: 50px;">
-					<h2 style="color: #ef4444;">❌ Error</h2>
-					<p>El nombre completo es requerido</p>
-					<p style="color: #6b7280;">Redirigiendo...</p>
-				</body>
-			</html>`))
+		ctx.Redirect(http.StatusFound, "/api/register?error=El+nombre+completo+es+requerido")
 		return
 	}
 
@@ -183,18 +130,7 @@ func (c *AuthController) Register(ctx *gin.Context) {
 			zap.Error(err),
 		)
 
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
-		ctx.Writer.Write([]byte(`
-			<html>
-				<head>
-					<meta http-equiv='refresh' content='3;url=/api/register'>
-				</head>
-				<body style="font-family: sans-serif; text-align: center; padding: 50px;">
-					<h2 style="color: #ef4444;">❌ Error en el Registro</h2>
-					<p>` + err.Error() + `</p>
-					<p style="color: #6b7280;">Redirigiendo...</p>
-				</body>
-			</html>`))
+		ctx.Redirect(http.StatusFound, "/api/register?error="+err.Error())
 		return
 	}
 
@@ -206,40 +142,26 @@ func (c *AuthController) Register(ctx *gin.Context) {
 	)
 
 	// Redirigir al login con mensaje de éxito
-	ctx.Writer.WriteHeader(http.StatusOK)
-	ctx.Writer.Write([]byte(`
-		<html>
-			<head>
-				<meta http-equiv='refresh' content='3;url=/api/login'>
-			</head>
-			<body style="font-family: sans-serif; text-align: center; padding: 50px;">
-				<h2 style="color: #10b981;">✅ Registro Exitoso</h2>
-				<p>Tu cuenta ha sido creada. Redirigiendo al login...</p>
-				<p style="color: #6b7280;">Espera 3 segundos...</p>
-			</body>
-		</html>`))
+	ctx.Redirect(http.StatusFound, "/api/login?success=Registro+exitoso")
 }
 
 // setSecureCookies configura las cookies con todos los flags de seguridad
 func (c *AuthController) setSecureCookies(ctx *gin.Context, token string) {
-	secure := config.AppConfig.IsProduction() // true solo en producción
+	secure := config.AppConfig.IsProduction()
 	maxAge := int(config.AppConfig.SessionDuration.Seconds())
 
-	// Configuración de cookies
 	cookieConfig := &http.Cookie{
 		Name:     "session_token",
 		Value:    token,
 		Path:     "/",
 		MaxAge:   maxAge,
-		HttpOnly: true,                    // No accesible por JavaScript
-		Secure:   secure,                  // Solo HTTPS en producción
-		SameSite: http.SameSiteStrictMode, // Previene CSRF
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteStrictMode,
 	}
 
-	// Establecer cookie principal
 	http.SetCookie(ctx.Writer, cookieConfig)
 
-	// También establecer como 'jwt' para compatibilidad
 	cookieConfig.Name = "jwt"
 	http.SetCookie(ctx.Writer, cookieConfig)
 
@@ -251,18 +173,15 @@ func (c *AuthController) setSecureCookies(ctx *gin.Context, token string) {
 }
 
 func (c *AuthController) Logout(ctx *gin.Context) {
-	// Obtener token actual
 	tokenString, _ := ctx.Cookie("session_token")
 	if tokenString == "" {
 		tokenString, _ = ctx.Cookie("jwt")
 	}
 
-	// Invalidar token (si está implementada la blacklist)
 	if tokenString != "" {
 		c.authService.InvalidateToken(tokenString)
 	}
 
-	// Obtener info del usuario antes de logout
 	if userObj, exists := ctx.Get("user"); exists {
 		if user, ok := userObj.(*models.User); ok {
 			utils.Logger.Info("User logged out",
@@ -272,7 +191,6 @@ func (c *AuthController) Logout(ctx *gin.Context) {
 		}
 	}
 
-	// Borrar cookies
 	c.clearCookies(ctx)
 
 	ctx.JSON(http.StatusOK, gin.H{
@@ -280,7 +198,6 @@ func (c *AuthController) Logout(ctx *gin.Context) {
 	})
 }
 
-// clearCookies elimina las cookies de sesión
 func (c *AuthController) clearCookies(ctx *gin.Context) {
 	cookieNames := []string{"session_token", "jwt"}
 
@@ -288,7 +205,7 @@ func (c *AuthController) clearCookies(ctx *gin.Context) {
 		ctx.SetCookie(
 			name,
 			"",
-			-1, // MaxAge negativo elimina la cookie
+			-1,
 			"/",
 			"",
 			config.AppConfig.IsProduction(),
@@ -299,9 +216,7 @@ func (c *AuthController) clearCookies(ctx *gin.Context) {
 	utils.Logger.Debug("Session cookies cleared")
 }
 
-// RefreshToken endpoint para renovar el token
 func (c *AuthController) RefreshToken(ctx *gin.Context) {
-	// Obtener token actual
 	oldToken, err := ctx.Cookie("session_token")
 	if err != nil {
 		oldToken, err = ctx.Cookie("jwt")
@@ -311,7 +226,6 @@ func (c *AuthController) RefreshToken(ctx *gin.Context) {
 		}
 	}
 
-	// Generar nuevo token
 	newToken, err := c.authService.RefreshToken(oldToken)
 	if err != nil {
 		utils.Logger.Warn("Token refresh failed",
@@ -322,7 +236,6 @@ func (c *AuthController) RefreshToken(ctx *gin.Context) {
 		return
 	}
 
-	// Configurar nuevas cookies
 	c.setSecureCookies(ctx, newToken)
 
 	utils.Logger.Info("Token refreshed",
@@ -335,16 +248,13 @@ func (c *AuthController) RefreshToken(ctx *gin.Context) {
 	})
 }
 
-// ChangePassword endpoint para cambiar contraseña
 func (c *AuthController) ChangePassword(ctx *gin.Context) {
-	// Obtener user_id del contexto (debe estar autenticado)
 	userID, exists := ctx.Get("user_id")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Usuario no autenticado"})
 		return
 	}
 
-	// Obtener contraseñas del request
 	type ChangePasswordRequest struct {
 		OldPassword string `json:"old_password" binding:"required"`
 		NewPassword string `json:"new_password" binding:"required"`
@@ -356,13 +266,11 @@ func (c *AuthController) ChangePassword(ctx *gin.Context) {
 		return
 	}
 
-	// Validar nueva contraseña
 	if err := validators.ValidateStringLength(req.NewPassword, "nueva contraseña", 8, 128); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Cambiar contraseña
 	uid, ok := userID.(uint)
 	if !ok {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error interno"})
@@ -382,7 +290,6 @@ func (c *AuthController) ChangePassword(ctx *gin.Context) {
 		zap.Uint("user_id", uid),
 	)
 
-	// Invalidar tokens actuales (forzar re-login)
 	c.clearCookies(ctx)
 
 	ctx.JSON(http.StatusOK, gin.H{

@@ -20,7 +20,6 @@ func NewAdminController() *AdminController {
 
 // ================= GESTIÓN DE CONCEPTOS =================
 
-// GET /admin/conceptos - Muestra la página de gestión de conceptos
 func (c *AdminController) ConceptosPage(ctx *gin.Context) {
 	content, err := os.ReadFile("./Front/admin_conceptos.html")
 	if err != nil {
@@ -30,7 +29,6 @@ func (c *AdminController) ConceptosPage(ctx *gin.Context) {
 	ctx.Data(http.StatusOK, "text/html; charset=utf-8", content)
 }
 
-// GET /api/admin/conceptos - Lista todos los conceptos
 func (c *AdminController) GetConceptos(ctx *gin.Context) {
 	var conceptos []models.ConceptType
 	if err := database.DB.Preload("Creator").Find(&conceptos).Error; err != nil {
@@ -40,7 +38,6 @@ func (c *AdminController) GetConceptos(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, conceptos)
 }
 
-// POST /api/admin/conceptos - Crea un nuevo concepto
 func (c *AdminController) CreateConcepto(ctx *gin.Context) {
 	var req struct {
 		ConceptName             string `json:"concept_name" binding:"required"`
@@ -52,7 +49,6 @@ func (c *AdminController) CreateConcepto(ctx *gin.Context) {
 		return
 	}
 
-	// Validar que movement_type_association sea válido
 	validTypes := []string{"Ingreso", "Egreso", "RetiroCaja", "Ambos"}
 	valid := false
 	for _, t := range validTypes {
@@ -83,7 +79,6 @@ func (c *AdminController) CreateConcepto(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, concepto)
 }
 
-// PUT /api/admin/conceptos/:id - Actualiza un concepto
 func (c *AdminController) UpdateConcepto(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	if err != nil {
@@ -108,7 +103,6 @@ func (c *AdminController) UpdateConcepto(ctx *gin.Context) {
 		return
 	}
 
-	// Actualizar campos
 	if req.ConceptName != "" {
 		concepto.ConceptName = req.ConceptName
 	}
@@ -128,7 +122,6 @@ func (c *AdminController) UpdateConcepto(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, concepto)
 }
 
-// DELETE /api/admin/conceptos/:id - Elimina un concepto
 func (c *AdminController) DeleteConcepto(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	if err != nil {
@@ -146,9 +139,8 @@ func (c *AdminController) DeleteConcepto(ctx *gin.Context) {
 
 // ================= GESTIÓN DE ROLES =================
 
-// GET /admin/roles - Muestra la página de gestión de roles
 func (c *AdminController) RolesPage(ctx *gin.Context) {
-	content, err := os.ReadFile("./Front/admin_roles.html")
+	content, err := os.ReadFile("./Front/registro_roles.html")
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "Error al cargar la página")
 		return
@@ -156,7 +148,6 @@ func (c *AdminController) RolesPage(ctx *gin.Context) {
 	ctx.Data(http.StatusOK, "text/html; charset=utf-8", content)
 }
 
-// GET /api/admin/roles - Lista todos los roles
 func (c *AdminController) GetRoles(ctx *gin.Context) {
 	var roles []models.Role
 	if err := database.DB.Find(&roles).Error; err != nil {
@@ -166,7 +157,6 @@ func (c *AdminController) GetRoles(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, roles)
 }
 
-// POST /api/admin/roles - Crea un nuevo rol
 func (c *AdminController) CreateRole(ctx *gin.Context) {
 	var req struct {
 		RoleName string `json:"role_name" binding:"required"`
@@ -193,7 +183,6 @@ func (c *AdminController) CreateRole(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, role)
 }
 
-// PUT /api/admin/roles/:id - Actualiza un rol
 func (c *AdminController) UpdateRole(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	if err != nil {
@@ -226,7 +215,6 @@ func (c *AdminController) UpdateRole(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, role)
 }
 
-// DELETE /api/admin/roles/:id - Elimina un rol
 func (c *AdminController) DeleteRole(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	if err != nil {
@@ -234,7 +222,6 @@ func (c *AdminController) DeleteRole(ctx *gin.Context) {
 		return
 	}
 
-	// Verificar que no haya usuarios con este rol
 	var userCount int64
 	database.DB.Model(&models.User{}).Where("role_id = ?", id).Count(&userCount)
 	if userCount > 0 {
@@ -252,9 +239,8 @@ func (c *AdminController) DeleteRole(ctx *gin.Context) {
 
 // ================= GESTIÓN DE USUARIOS =================
 
-// GET /admin/usuarios - Muestra la página de gestión de usuarios
 func (c *AdminController) UsuariosPage(ctx *gin.Context) {
-	content, err := os.ReadFile("./Front/admin_usuarios.html")
+	content, err := os.ReadFile("./Front/registro_usuarios.html")
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "Error al cargar la página")
 		return
@@ -262,7 +248,6 @@ func (c *AdminController) UsuariosPage(ctx *gin.Context) {
 	ctx.Data(http.StatusOK, "text/html; charset=utf-8", content)
 }
 
-// GET /api/admin/usuarios - Lista todos los usuarios
 func (c *AdminController) GetUsuarios(ctx *gin.Context) {
 	var usuarios []models.User
 	if err := database.DB.Preload("Role").Find(&usuarios).Error; err != nil {
@@ -270,7 +255,6 @@ func (c *AdminController) GetUsuarios(ctx *gin.Context) {
 		return
 	}
 
-	// Omitir password_hash en la respuesta
 	type UserResponse struct {
 		UserID   uint        `json:"user_id"`
 		Email    string      `json:"email"`
@@ -295,7 +279,51 @@ func (c *AdminController) GetUsuarios(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, response)
 }
 
-// PUT /api/admin/usuarios/:id - Actualiza un usuario
+// ✅ NUEVO: Crear usuario
+func (c *AdminController) CreateUsuario(ctx *gin.Context) {
+	var req struct {
+		Email    string `json:"email" binding:"required,email"`
+		FullName string `json:"full_name" binding:"required"`
+		Password string `json:"password" binding:"required,min=8"`
+		RoleID   uint   `json:"role_id" binding:"required"`
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Datos inválidos"})
+		return
+	}
+
+	// Verificar que el email no exista
+	var existingUser models.User
+	if err := database.DB.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
+		ctx.JSON(http.StatusConflict, gin.H{"error": "El email ya está registrado"})
+		return
+	}
+
+	// Hash de la contraseña
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al procesar contraseña"})
+		return
+	}
+
+	usuario := models.User{
+		Email:        req.Email,
+		PasswordHash: string(hashedPassword),
+		FullName:     req.FullName,
+		RoleID:       req.RoleID,
+		IsActive:     true,
+	}
+
+	if err := database.DB.Create(&usuario).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al crear usuario"})
+		return
+	}
+
+	database.DB.Preload("Role").First(&usuario, usuario.UserID)
+	ctx.JSON(http.StatusCreated, usuario)
+}
+
 func (c *AdminController) UpdateUsuario(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	if err != nil {
@@ -339,7 +367,29 @@ func (c *AdminController) UpdateUsuario(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, usuario)
 }
 
-// POST /api/admin/usuarios/:id/reset-password - Resetea la contraseña de un usuario
+// ✅ NUEVO: Eliminar usuario
+func (c *AdminController) DeleteUsuario(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido"})
+		return
+	}
+
+	// No permitir eliminar al usuario actual
+	currentUserID := ctx.GetUint("user_id")
+	if uint64(currentUserID) == id {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "No puedes eliminar tu propio usuario"})
+		return
+	}
+
+	if err := database.DB.Delete(&models.User{}, id).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al eliminar usuario"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "Usuario eliminado"})
+}
+
 func (c *AdminController) ResetPasswordUsuario(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	if err != nil {
