@@ -6,8 +6,8 @@ import (
 	"caja-fuerte/middleware"
 	"strings"
 
-	"github.com/gin-contrib/sessions"        // <-- NUEVO
-	"github.com/gin-contrib/sessions/cookie" // <-- NUEVO
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/ulule/limiter/v3"
 	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
@@ -25,7 +25,6 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 	// =========================================================
 	// 1. CONFIGURACIÓN DE SESIONES (Indispensable para CSRF)
 	// =========================================================
-	// Usamos JWTSecret como llave para firmar las cookies de sesión
 	store := cookie.NewStore([]byte(cfg.JWTSecret))
 	r.Use(sessions.Sessions("megacajas_session", store))
 
@@ -36,7 +35,7 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 	r.Use(securityHeadersMiddleware())
 	r.Use(rateLimitMiddleware(cfg))
 
-	// CSRF: Ahora funcionará correctamente porque ya existe una sesión
+	// CSRF
 	if cfg.EnableCSRF && cfg.IsProduction() {
 		r.Use(middleware.CSRFMiddleware(cfg.JWTSecret))
 	}
@@ -45,14 +44,15 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 	authController := controllers.NewAuthController()
 	movementController := controllers.NewMovementController()
 	arcoController := controllers.NewArcoController()
+	adminController := controllers.NewAdminController()
 
-	// Archivos estáticos (Mantenidos como respaldo de Nginx)
+	// Archivos estáticos
 	r.Static("/css", "./Front/css")
 	r.Static("/js", "./Front/js")
 	r.Static("/static", "./static")
 	r.Static("/front", "./Front")
 
-	// Ruta principal (redirige al login)
+	// Ruta principal
 	r.GET("/", func(c *gin.Context) {
 		c.File("./Front/index.html")
 	})
@@ -88,57 +88,74 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 	protected := r.Group("")
 	protected.Use(middleware.AuthMiddleware())
 	{
+		// Movimientos
 		protected.GET("/movimientos", movementController.MovementPage)
 		protected.POST("/movimientos", movementController.CreateBatch)
 		protected.GET("/ingresos", movementController.IngresosPage)
 		protected.GET("/egresos", movementController.EgresosPage)
-		protected.GET("/ingresos/filtros", movementController.IngresosPageWithFilters)
-		protected.POST("/logout", authController.Logout)
+		//protected.GET("/ingresos/filtros", movementController.IngresosPageWithFilters)
 		protected.POST("/ingresos", movementController.CreateBatch)
 		protected.POST("/abrir-caja", movementController.AbrirCaja)
+		protected.GET("/historial_movimientos", movementController.HistorialMovimientosPage)
 
+		// Arco
 		protected.POST("/arco/abrir", arcoController.AbrirArco)
 		protected.POST("/arco/cerrar", arcoController.CerrarArco)
 		protected.GET("/arco/estado", controllers.ArcoEstadoHandler)
 		protected.POST("/arco/abrir-avanzado", arcoController.AbrirArcoAvanzado)
 
+		// API
 		protected.GET("/api/me", controllers.MeHandler)
 		protected.GET("/api/saldo-ultimo-arco", controllers.SaldoUltimoArcoHandler)
 		protected.GET("/api/arco-estado", controllers.EstadoArcoAPIHandler)
 		protected.GET("/api/movimientos/arco/:arco_id", movementController.GetMovementsByArcoID)
 		protected.DELETE("/api/movimientos/:movement_id", movementController.DeleteMovement)
+
+		// Reportes
 		protected.GET("/reporte", controllers.MostrarPaginaReportes)
+		protected.GET("/reporte_general", func(c *gin.Context) {
+			c.File("./Front/reporte_general.html")
+		})
 
-		//coso para todos los movimientos
-		protected.GET("/historial-movimientos", movementController.HistorialMovimientosPage)
-
+		// Auth
+		protected.POST("/logout", authController.Logout)
 		protected.POST("/api/change-password", authController.ChangePassword)
 
-		adminController := controllers.NewAdminController()
+		// =========================================================
+		// PÁGINAS DE ADMINISTRACIÓN (HTML)
+		// =========================================================
 
-		// API de conceptos
+		// CONCEPTOS - Página HTML
 		protected.GET("/registro_conceptos", adminController.ConceptosPage)
 
+		// USUARIOS - Página HTML
+		protected.GET("/registro_usuarios", adminController.UsuariosPage)
+
+		// ROLES - Página HTML
+		protected.GET("/registro_roles", adminController.RolesPage)
+
+		// =========================================================
+		// API DE ADMINISTRACIÓN (JSON)
+		// =========================================================
+
+		// API de conceptos
 		protected.GET("/api/admin/conceptos", adminController.GetConceptos)
 		protected.POST("/api/admin/conceptos", adminController.CreateConcepto)
 		protected.PUT("/api/admin/conceptos/:id", adminController.UpdateConcepto)
 		protected.DELETE("/api/admin/conceptos/:id", adminController.DeleteConcepto)
 
-		// Rutas de usuarios y roles
-		protected.GET("/registro_roles", adminController.RolesPage)
-
+		// API de usuarios
 		protected.GET("/api/admin/usuarios", adminController.GetUsuarios)
 		protected.POST("/api/admin/usuarios", adminController.CreateUsuario)
 		protected.PUT("/api/admin/usuarios/:id", adminController.UpdateUsuario)
 		protected.DELETE("/api/admin/usuarios/:id", adminController.DeleteUsuario)
 		protected.POST("/api/admin/usuarios/:id/reset-password", adminController.ResetPasswordUsuario)
 
+		// API de roles
 		protected.GET("/api/admin/roles", adminController.GetRoles)
-
 		protected.POST("/api/admin/roles", adminController.CreateRole)
 		protected.PUT("/api/admin/roles/:id", adminController.UpdateRole)
 		protected.DELETE("/api/admin/roles/:id", adminController.DeleteRole)
-
 	}
 
 	return r
@@ -159,9 +176,7 @@ func rateLimitMiddleware(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		middleware(c)
 
-		// Si excede el límite, loggear
 		if c.IsAborted() {
-			// El middleware ya abortó, solo loggeamos
 			c.JSON(429, gin.H{
 				"error": "Demasiadas peticiones. Intenta más tarde.",
 			})
@@ -174,7 +189,6 @@ func corsMiddleware(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
 
-		// Verificar si el origen está permitido
 		allowed := false
 		if len(cfg.AllowedOrigins) == 1 && cfg.AllowedOrigins[0] == "*" {
 			allowed = true
@@ -207,15 +221,10 @@ func corsMiddleware(cfg *config.Config) gin.HandlerFunc {
 // securityHeadersMiddleware añade headers de seguridad
 func securityHeadersMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Prevenir ataques XSS
 		c.Writer.Header().Set("X-Content-Type-Options", "nosniff")
 		c.Writer.Header().Set("X-Frame-Options", "DENY")
 		c.Writer.Header().Set("X-XSS-Protection", "1; mode=block")
-
-		// Política de seguridad de contenido
 		c.Writer.Header().Set("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com")
-
-		// Política de referrer
 		c.Writer.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
 		c.Next()

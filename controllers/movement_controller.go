@@ -1,24 +1,30 @@
-// GET /api/movimientos/arco/:arco_id
 package controllers
 
 import (
 	"caja-fuerte/database"
-	"caja-fuerte/models"   //
-	"caja-fuerte/services" //
-	"encoding/json"        //
+	"caja-fuerte/models"
+	"caja-fuerte/services"
+	"encoding/json"
 	"errors"
-	"fmt"      //
-	"net/http" //
+	"fmt"
+	"log"
+	"net/http"
 	"os"
-	"strconv" //
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-type MovementController struct { //
-	movementService *services.MovementService //
+type MovementController struct {
+	movementService *services.MovementService
+}
+
+func NewMovementController() *MovementController {
+	return &MovementController{
+		movementService: services.NewMovementService(),
+	}
 }
 
 // GET /api/movimientos/arco/:arco_id
@@ -56,26 +62,18 @@ func (c *MovementController) DeleteMovement(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, gin.H{"message": "Movimiento eliminado"})
 }
-func NewMovementController() *MovementController { //
-	return &MovementController{ //
-		movementService: services.NewMovementService(), //
-	}
-}
 
-func (c *MovementController) CreateBatch(ctx *gin.Context) { //
-	var req models.BatchMovementRequest //
+func (c *MovementController) CreateBatch(ctx *gin.Context) {
+	var req models.BatchMovementRequest
 
 	// Permitir recibir tanto JSON (API) como formulario (desde HTML)
 	if ctx.ContentType() == "application/json" {
-		// Leer el body una sola vez y deserializar a batch o a single
 		raw, err := ctx.GetRawData()
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "No se pudo leer el cuerpo de la petición"})
 			return
 		}
-		// Intentar deserializar a BatchMovementRequest
 		if err := json.Unmarshal(raw, &req); err != nil || len(req.Movements) == 0 {
-			// Intentar deserializar a MovementRequest individual
 			var single models.MovementRequest
 			if err2 := json.Unmarshal(raw, &single); err2 != nil {
 				ctx.JSON(http.StatusBadRequest, gin.H{"error": "Payload inválido: " + err.Error()})
@@ -83,10 +81,7 @@ func (c *MovementController) CreateBatch(ctx *gin.Context) { //
 			}
 			req.Movements = []models.MovementRequest{single}
 		}
-		// Re-enable the request body for other middlewares/handlers if needed
-		// (Gin already consumed it; subsequent ShouldBind won't work.)
 	} else {
-		// Recibe desde formulario: el campo 'movimientos' es un string JSON
 		movimientosStr := ctx.PostForm("movimientos")
 		fmt.Println("[DEBUG] movimientosStr recibido:", movimientosStr)
 		if movimientosStr == "" {
@@ -104,7 +99,6 @@ func (c *MovementController) CreateBatch(ctx *gin.Context) { //
 		}
 	}
 
-	// Ensure CreatedBy is set from authenticated user for security
 	userID := ctx.GetUint("user_id")
 	for i := range req.Movements {
 		if req.Movements[i].CreatedBy == 0 {
@@ -113,7 +107,6 @@ func (c *MovementController) CreateBatch(ctx *gin.Context) { //
 	}
 
 	if err := c.movementService.CreateBatchMovements(req.Movements); err != nil {
-		// Manejo detallado de errores según los sentinels del servicio
 		if errors.Is(err, services.ErrNoOpenArco) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "No hay un arco abierto para este turno. Debe abrir el arco antes de crear movimientos."})
 			return
@@ -130,7 +123,6 @@ func (c *MovementController) CreateBatch(ctx *gin.Context) { //
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al crear movimiento: " + err.Error()})
 			return
 		}
-		// Fallback: error genérico
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -138,74 +130,71 @@ func (c *MovementController) CreateBatch(ctx *gin.Context) { //
 	ctx.JSON(http.StatusCreated, gin.H{"message": "Movimientos creados exitosamente"})
 }
 
-func (c *MovementController) GetMovements(ctx *gin.Context) { //
-	// Obtener parámetros de consulta
-	filters := make(map[string]interface{}) //
+func (c *MovementController) GetMovements(ctx *gin.Context) {
+	filters := make(map[string]interface{})
 
-	if date := ctx.Query("date"); date != "" { //
-		filters["date"] = date //
+	if date := ctx.Query("date"); date != "" {
+		filters["date"] = date
 	}
-	if userID := ctx.Query("user_id"); userID != "" { //
-		if id, err := strconv.Atoi(userID); err == nil { //
-			filters["user_id"] = id //
+	if userID := ctx.Query("user_id"); userID != "" {
+		if id, err := strconv.Atoi(userID); err == nil {
+			filters["user_id"] = id
 		}
 	}
-	if shift := ctx.Query("shift"); shift != "" { //
-		filters["shift"] = shift //
+	if shift := ctx.Query("shift"); shift != "" {
+		filters["shift"] = shift
 	}
-	if conceptID := ctx.Query("concept_id"); conceptID != "" { //
-		if id, err := strconv.Atoi(conceptID); err == nil { //
-			filters["concept_id"] = id //
-		}
-	}
-
-	// Paginación
-	limit := 20                           //
-	offset := 0                           //
-	if l := ctx.Query("limit"); l != "" { //
-		if parsed, err := strconv.Atoi(l); err == nil { //
-			limit = parsed //
-		}
-	}
-	if o := ctx.Query("offset"); o != "" { //
-		if parsed, err := strconv.Atoi(o); err == nil { //
-			offset = parsed //
+	if conceptID := ctx.Query("concept_id"); conceptID != "" {
+		if id, err := strconv.Atoi(conceptID); err == nil {
+			filters["concept_id"] = id
 		}
 	}
 
-	movements, total, err := c.movementService.GetMovements(filters, limit, offset) //
-	if err != nil {                                                                 //
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}) //
-		return                                                                //
+	limit := 20
+	offset := 0
+	if l := ctx.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil {
+			limit = parsed
+		}
+	}
+	if o := ctx.Query("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil {
+			offset = parsed
+		}
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{ //
-		"movements": movements, //
-		"total":     total,     //
-		"limit":     limit,     //
-		"offset":    offset,    //
+	movements, total, err := c.movementService.GetMovements(filters, limit, offset)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"movements": movements,
+		"total":     total,
+		"limit":     limit,
+		"offset":    offset,
 	})
 }
 
-func (c *MovementController) GetLastMovements(ctx *gin.Context) { //
-	limit := 15                           //
-	if l := ctx.Query("limit"); l != "" { //
-		if parsed, err := strconv.Atoi(l); err == nil { //
-			limit = parsed //
+func (c *MovementController) GetLastMovements(ctx *gin.Context) {
+	limit := 15
+	if l := ctx.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil {
+			limit = parsed
 		}
 	}
 
-	movements, err := c.movementService.GetLastMovements(limit) //
-	if err != nil {                                             //
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}) //
-		return                                                                //
+	movements, err := c.movementService.GetLastMovements(limit)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"movements": movements}) //
+	ctx.JSON(http.StatusOK, gin.H{"movements": movements})
 }
 
 // GET /movimientos (HTML)
-
 func (c *MovementController) MovementPage(ctx *gin.Context) {
 	userEmail := ctx.GetString("email")
 	content, err := os.ReadFile("./Front/movimiento.html")
@@ -246,11 +235,11 @@ func (c *MovementController) IngresosPage(ctx *gin.Context) {
 		ctx.String(http.StatusInternalServerError, "Error al obtener conceptos")
 		return
 	}
-	// Filtros por defecto: mes actual y tipo 'Ingreso'
+
 	now := time.Now()
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	endOfMonth := startOfMonth.AddDate(0, 1, 0)
-	// --- NUEVO: obtener arco abierto para el usuario y turno ---
+
 	arcoService := services.NewArcoService()
 	arcoAbierto, err := arcoService.UltimoArcoAbiertoOCerrado()
 	var arcoID uint
@@ -260,7 +249,7 @@ func (c *MovementController) IngresosPage(ctx *gin.Context) {
 			arcoID = ultimo.ID
 		}
 	}
-	_ = arcoID // evitar error de variable no usada
+
 	filters := map[string]interface{}{
 		"movement_type": "Ingreso",
 		"date_gte":      startOfMonth,
@@ -274,117 +263,7 @@ func (c *MovementController) IngresosPage(ctx *gin.Context) {
 		ctx.String(http.StatusInternalServerError, "Error al obtener movimientos")
 		return
 	}
-	// Renderizar movimientos en HTML
-	movsHTML := ""
-	for _, m := range movements {
-		movsHTML += fmt.Sprintf(
-			`<div class='movimiento-list'><span><b>%d</b> - %s - $%.2f - %s - %s - %s</span></div>`,
-			m.MovementID,
-			m.MovementDate.Format("2006-01-02"),
-			m.Amount,
-			m.Creator.FullName,
-			m.Shift,
-			m.MovementType,
-		)
-	}
-	content, err := os.ReadFile("./Front/ingresos.html")
-	if err != nil {
-		ctx.String(http.StatusInternalServerError, "Error al cargar la página")
-		return
-	}
-	options := ""
-	for _, concept := range concepts {
-		if concept.MovementTypeAssociation == "Ingreso" || concept.MovementTypeAssociation == "Ambos" {
-			options += fmt.Sprintf("<option value=\"%d\">%s (%s)</option>", concept.ConceptID, concept.ConceptName, concept.MovementTypeAssociation)
-		}
-	}
-	html := strings.ReplaceAll(string(content), "{{USUARIO_ACTUAL}}", userEmail)
-	html = strings.ReplaceAll(html, "{{CONCEPT_OPTIONS}}", options)
-	html = strings.ReplaceAll(html, "{{CREATED_BY}}", fmt.Sprintf("%d", userID))
-	html = strings.ReplaceAll(html, "{{CREATED_BY_LABEL}}", createdByLabel)
-	html = strings.ReplaceAll(html, "{{MOVIMIENTOS_DB}}", movsHTML)
-	// Agregar formulario de filtros (botón y modal)
-	filtrosHTML := `<button id='btnFiltros' class='btn'>Filtros</button>
-	<div id='modalFiltros' style='display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:1000;'>
-	  <div style='background:#fff;padding:20px;margin:100px auto;width:400px;position:relative;'>
-		<h3>Filtros avanzados</h3>
-		<form method='GET' action='/ingresos'>
-		  <label>Fecha desde: <input type='date' name='fecha_desde'></label><br>
-		  <label>Fecha hasta: <input type='date' name='fecha_hasta'></label><br>
-		  <label>Usuario: <input type='text' name='usuario'></label><br>
-		  <label>Turno: <select name='turno'><option value=''>Todos</option><option value='M'>Mañana</option><option value='T'>Tarde</option></select></label><br>
-		  <label>Concepto: <input type='text' name='concepto'></label><br>
-		  <label>Tipo: <select name='tipo'><option value=''>Todos</option><option value='Ingreso'>Ingreso</option><option value='Egreso'>Egreso</option></select></label><br>
-		  <button type='submit' class='btn'>Aplicar</button>
-		  <button type='button' id='cerrarModal' class='btn'>Cerrar</button>
-		</form>
-	  </div>
-	</div>
-	<script>
-	  document.getElementById('btnFiltros').onclick = function(){document.getElementById('modalFiltros').style.display='block';}
-	  document.getElementById('cerrarModal').onclick = function(){document.getElementById('modalFiltros').style.display='none';}
-	</script>`
-	html = strings.Replace(html, "{{FILTROS_HTML}}", filtrosHTML, 1)
-	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
-}
 
-// GET /ingresos/filtros (HTML con filtros avanzados)
-func (c *MovementController) IngresosPageWithFilters(ctx *gin.Context) {
-	userEmail := ctx.GetString("email")
-	var userID uint64
-	if v, exists := ctx.Get("user_id"); exists {
-		switch val := v.(type) {
-		case float64:
-			userID = uint64(val)
-		case int:
-			userID = uint64(val)
-		case int64:
-			userID = uint64(val)
-		case uint:
-			userID = uint64(val)
-		case uint64:
-			userID = val
-		case string:
-			parsed, err := strconv.ParseUint(val, 10, 64)
-			if err == nil {
-				userID = parsed
-			}
-		}
-	}
-	createdByLabel := userEmail
-	concepts, err := conceptService.GetActiveConcepts()
-	if err != nil {
-		ctx.String(http.StatusInternalServerError, "Error al obtener conceptos")
-		return
-	}
-	// Procesar filtros desde query params
-	filters := map[string]interface{}{
-		"movement_type": "Ingreso",
-	}
-	if desde := ctx.Query("fecha_desde"); desde != "" {
-		filters["date_gte"] = desde
-	}
-	if hasta := ctx.Query("fecha_hasta"); hasta != "" {
-		filters["date_lt"] = hasta
-	}
-	if usuario := ctx.Query("usuario"); usuario != "" {
-		filters["user_id"] = usuario
-	}
-	if turno := ctx.Query("turno"); turno != "" {
-		filters["shift"] = turno
-	}
-	if concepto := ctx.Query("concepto"); concepto != "" {
-		filters["concept_id"] = concepto
-	}
-	if tipo := ctx.Query("tipo"); tipo != "" {
-		filters["movement_type"] = tipo
-	}
-	movements, _, err := c.movementService.GetMovementsWithFilters(filters)
-	if err != nil {
-		ctx.String(http.StatusInternalServerError, "Error al obtener movimientos")
-		return
-	}
-	// Renderizar movimientos en HTML
 	movsHTML := ""
 	for _, m := range movements {
 		movsHTML += fmt.Sprintf(
@@ -413,7 +292,7 @@ func (c *MovementController) IngresosPageWithFilters(ctx *gin.Context) {
 	html = strings.ReplaceAll(html, "{{CREATED_BY}}", fmt.Sprintf("%d", userID))
 	html = strings.ReplaceAll(html, "{{CREATED_BY_LABEL}}", createdByLabel)
 	html = strings.ReplaceAll(html, "{{MOVIMIENTOS_DB}}", movsHTML)
-	// Agregar formulario de filtros (botón y modal)
+
 	filtrosHTML := `<button id='btnFiltros' class='btn'>Filtros</button>
 	<div id='modalFiltros' style='display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:1000;'>
 	  <div style='background:#fff;padding:20px;margin:100px auto;width:400px;position:relative;'>
@@ -467,11 +346,11 @@ func (c *MovementController) EgresosPage(ctx *gin.Context) {
 		ctx.String(http.StatusInternalServerError, "Error al obtener conceptos")
 		return
 	}
-	// Filtros por defecto: mes actual y tipo 'Egreso'
+
 	now := time.Now()
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	endOfMonth := startOfMonth.AddDate(0, 1, 0)
-	// --- NUEVO: obtener arco abierto para el usuario y turno ---
+
 	arcoService := services.NewArcoService()
 	arcoAbierto, err := arcoService.UltimoArcoAbiertoOCerrado()
 	var arcoID uint
@@ -481,7 +360,7 @@ func (c *MovementController) EgresosPage(ctx *gin.Context) {
 			arcoID = ultimo.ID
 		}
 	}
-	_ = arcoID // evitar error de variable no usada
+
 	filters := map[string]interface{}{
 		"movement_type": "Egreso",
 		"date_gte":      startOfMonth,
@@ -495,7 +374,7 @@ func (c *MovementController) EgresosPage(ctx *gin.Context) {
 		ctx.String(http.StatusInternalServerError, "Error al obtener movimientos")
 		return
 	}
-	// Renderizar movimientos en HTML
+
 	movsHTML := ""
 	for _, m := range movements {
 		movsHTML += fmt.Sprintf(
@@ -527,27 +406,34 @@ func (c *MovementController) EgresosPage(ctx *gin.Context) {
 	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 
+// GET /historial-movimientos
 func (c *MovementController) HistorialMovimientosPage(ctx *gin.Context) {
 	userEmail := ctx.GetString("email")
 
-	// Obtener todos los arcos con sus movimientos
-	//arcoService := services.NewArcoService()
+	// Log para debug
+	log.Println("[HISTORIAL] Iniciando carga de historial de movimientos")
+
 	var arcos []models.Arco
 
 	// Obtener arcos ordenados por fecha de apertura descendente
 	if err := database.DB.Preload("Usuario").
+		Preload("Movimientos", "deleted_at IS NULL"). // Solo movimientos no eliminados
 		Preload("Movimientos.Concept").
 		Preload("Movimientos.Creator").
 		Order("fecha_apertura DESC").
 		Find(&arcos).Error; err != nil {
-		ctx.String(http.StatusInternalServerError, "Error al cargar arcos")
+		log.Printf("[ERROR HISTORIAL] Error al cargar arcos: %v", err)
+		ctx.String(http.StatusInternalServerError, "Error al cargar arcos: %v", err)
 		return
 	}
+
+	log.Printf("[HISTORIAL] Se cargaron %d arcos", len(arcos))
 
 	// Leer el HTML base
 	content, err := os.ReadFile("./Front/historial_movimientos.html")
 	if err != nil {
-		ctx.String(http.StatusInternalServerError, "Error al cargar la página")
+		log.Printf("[ERROR HISTORIAL] Error al cargar plantilla HTML: %v", err)
+		ctx.String(http.StatusInternalServerError, "Error al cargar la página: %v", err)
 		return
 	}
 
@@ -677,6 +563,11 @@ func (c *MovementController) HistorialMovimientosPage(ctx *gin.Context) {
 						conceptoNombre = mov.Concept.ConceptName
 					}
 
+					detalleHTML := ""
+					if mov.Details != "" {
+						detalleHTML = fmt.Sprintf(`<div class="movimiento-note"><i class="fas fa-comment"></i>%s</div>`, mov.Details)
+					}
+
 					arcosHTML += fmt.Sprintf(`
 					<div class="movimiento-item %s">
 						<div class="movimiento-icon">
@@ -712,12 +603,7 @@ func (c *MovementController) HistorialMovimientosPage(ctx *gin.Context) {
 						conceptoNombre,
 						mov.MovementDate.Format("02/01/2006 15:04"),
 						mov.Creator.FullName,
-						func() string {
-							if mov.Details != "" {
-								return fmt.Sprintf(`<div class="movimiento-note"><i class="fas fa-comment"></i>%s</div>`, mov.Details)
-							}
-							return ""
-						}(),
+						detalleHTML,
 					)
 				}
 			}
@@ -732,6 +618,7 @@ func (c *MovementController) HistorialMovimientosPage(ctx *gin.Context) {
 	html = strings.ReplaceAll(html, "{{USUARIO_ACTUAL}}", userEmail)
 	html = strings.ReplaceAll(html, "{{ARCOS_MOVIMIENTOS}}", arcosHTML)
 
+	log.Println("[HISTORIAL] Página generada exitosamente")
 	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 

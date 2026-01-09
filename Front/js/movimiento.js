@@ -443,7 +443,7 @@ btnEgresos.addEventListener("click", () => {
 
 linkMovimientos.addEventListener("click", (e) => {
   e.preventDefault()
-  window.location.href = "/historial-movimientos"
+  window.location.href = "/historial_movimientos"
 })
 
 
