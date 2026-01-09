@@ -117,6 +117,29 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 		protected.GET("/registro_roles", func(c *gin.Context) {
 			c.File("./Front/registro_roles.html")
 		})
+
+		adminController := controllers.NewAdminController()
+
+		protected.GET("/registro_conceptos", adminController.ConceptosPage)
+
+		// API de conceptos
+		protected.GET("/api/admin/conceptos", adminController.GetConceptos)
+		protected.POST("/api/admin/conceptos", adminController.CreateConcepto)
+		protected.PUT("/api/admin/conceptos/:id", adminController.UpdateConcepto)
+		protected.DELETE("/api/admin/conceptos/:id", adminController.DeleteConcepto)
+
+		// Rutas de usuarios y roles (si no las tienes ya)
+		protected.GET("/api/admin/usuarios", adminController.GetUsuarios)
+		protected.POST("/api/admin/usuarios", adminController.CreateUsuario)
+		protected.PUT("/api/admin/usuarios/:id", adminController.UpdateUsuario)
+		protected.DELETE("/api/admin/usuarios/:id", adminController.DeleteUsuario)
+		protected.POST("/api/admin/usuarios/:id/reset-password", adminController.ResetPasswordUsuario)
+
+		protected.GET("/api/admin/roles", adminController.GetRoles)
+		protected.POST("/api/admin/roles", adminController.CreateRole)
+		protected.PUT("/api/admin/roles/:id", adminController.UpdateRole)
+		protected.DELETE("/api/admin/roles/:id", adminController.DeleteRole)
+
 	}
 
 	return r

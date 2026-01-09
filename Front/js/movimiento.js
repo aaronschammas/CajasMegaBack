@@ -55,9 +55,9 @@ function updateUI() {
     // Mostrar el saldo inicial, ingresos, egresos y el total
     detalleSaldos.innerHTML =
       `<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-end;align-items:center;">
-        <span style="color:#6366f1;font-weight:600;">💰 Inicial: <b>${formatCurrency(saldoInicial)}</b></span>
-        <span style="color:#10b981;">📈 Ingresos: <b>${formatCurrency(totalIngresos)}</b></span>
-        <span style="color:#ef4444;">📉 Egresos: <b>${formatCurrency(totalEgresos)}</b></span>
+        <span style="color:#6366f1;font-weight:600;">Inicial: <b>${formatCurrency(saldoInicial)}</b></span>
+        <span style="color:#10b981;"> Ingresos: <b>${formatCurrency(totalIngresos)}</b></span>
+        <span style="color:#ef4444;">Egresos: <b>${formatCurrency(totalEgresos)}</b></span>
         <span style="color:#6b7280;font-size:0.9em;">| Total = Inicial + Ingresos - Egresos</span>
       </div>`
   }
