@@ -422,7 +422,9 @@ document.addEventListener("DOMContentLoaded", () => {
     })
 })
 
-// Navegación
+
+
+// Navegación configuracion botones
 btnIngresos.addEventListener("click", () => {
   if (!arqueoAbierto) {
     showNotification("Debes abrir un arqueo antes de registrar movimientos", "warning")
@@ -441,8 +443,9 @@ btnEgresos.addEventListener("click", () => {
 
 linkMovimientos.addEventListener("click", (e) => {
   e.preventDefault()
-  window.location.href = "/arqueos/ultimo/movements"
+  window.location.href = "/historial-movimientos"
 })
+
 
 // Detalle del saldo
 saldoDetailBtn.addEventListener("click", () => {

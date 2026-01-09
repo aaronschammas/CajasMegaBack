@@ -2,6 +2,7 @@
 package controllers
 
 import (
+	"caja-fuerte/database"
 	"caja-fuerte/models"   //
 	"caja-fuerte/services" //
 	"encoding/json"        //
@@ -524,6 +525,219 @@ func (c *MovementController) EgresosPage(ctx *gin.Context) {
 	html = strings.ReplaceAll(html, "{{CREATED_BY_LABEL}}", createdByLabel)
 	html = strings.ReplaceAll(html, "{{MOVIMIENTOS_DB}}", movsHTML)
 	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+func (c *MovementController) HistorialMovimientosPage(ctx *gin.Context) {
+	userEmail := ctx.GetString("email")
+
+	// Obtener todos los arcos con sus movimientos
+	//arcoService := services.NewArcoService()
+	var arcos []models.Arco
+
+	// Obtener arcos ordenados por fecha de apertura descendente
+	if err := database.DB.Preload("Usuario").
+		Preload("Movimientos.Concept").
+		Preload("Movimientos.Creator").
+		Order("fecha_apertura DESC").
+		Find(&arcos).Error; err != nil {
+		ctx.String(http.StatusInternalServerError, "Error al cargar arcos")
+		return
+	}
+
+	// Leer el HTML base
+	content, err := os.ReadFile("./Front/historial_movimientos.html")
+	if err != nil {
+		ctx.String(http.StatusInternalServerError, "Error al cargar la página")
+		return
+	}
+
+	// Construir HTML de arcos y movimientos
+	arcosHTML := ""
+	if len(arcos) == 0 {
+		arcosHTML = `
+		<div class="empty-state">
+			<i class="fas fa-inbox"></i>
+			<p>No hay movimientos registrados</p>
+		</div>`
+	} else {
+		for _, arco := range arcos {
+			estadoArco := "Abierto"
+			estadoClass := "open"
+			if arco.FechaCierre != nil {
+				estadoArco = "Cerrado"
+				estadoClass = "closed"
+			}
+
+			turnoLabel := "Mañana"
+			if arco.Turno == "T" {
+				turnoLabel = "Tarde"
+			}
+
+			// Calcular totales del arco
+			var totalIngresos, totalEgresos, totalRetiros float64
+			for _, mov := range arco.Movimientos {
+				switch mov.MovementType {
+				case "Ingreso":
+					totalIngresos += mov.Amount
+				case "Egreso":
+					totalEgresos += mov.Amount
+				case "RetiroCaja":
+					totalRetiros += mov.Amount
+				}
+			}
+			saldoArco := arco.SaldoInicial + totalIngresos - totalEgresos - totalRetiros
+
+			arcosHTML += fmt.Sprintf(`
+			<div class="arco-card">
+				<div class="arco-header">
+					<div class="arco-info">
+						<h3>
+							<i class="fas fa-folder-open"></i>
+							Arco #%d - %s
+						</h3>
+						<div class="arco-meta">
+							<span class="meta-item">
+								<i class="fas fa-calendar"></i>
+								%s
+							</span>
+							<span class="meta-item">
+								<i class="fas fa-clock"></i>
+								%s
+							</span>
+							<span class="meta-item">
+								<i class="fas fa-user"></i>
+								%s
+							</span>
+							<span class="badge badge-%s">%s</span>
+						</div>
+					</div>
+					<div class="arco-summary">
+						<div class="summary-item">
+							<span class="label">Saldo Inicial</span>
+							<span class="value">%s</span>
+						</div>
+						<div class="summary-item success">
+							<span class="label">Ingresos</span>
+							<span class="value">+%s</span>
+						</div>
+						<div class="summary-item danger">
+							<span class="label">Egresos</span>
+							<span class="value">-%s</span>
+						</div>
+						<div class="summary-item warning">
+							<span class="label">Retiros</span>
+							<span class="value">-%s</span>
+						</div>
+						<div class="summary-item total">
+							<span class="label">Saldo Final</span>
+							<span class="value">%s</span>
+						</div>
+					</div>
+				</div>
+				<div class="movimientos-list">`,
+				arco.ID,
+				turnoLabel,
+				arco.FechaApertura.Format("02/01/2006"),
+				turnoLabel,
+				arco.Usuario.FullName,
+				estadoClass,
+				estadoArco,
+				formatCurrency(arco.SaldoInicial),
+				formatCurrency(totalIngresos),
+				formatCurrency(totalEgresos),
+				formatCurrency(totalRetiros),
+				formatCurrency(saldoArco),
+			)
+
+			// Agregar movimientos del arco
+			if len(arco.Movimientos) == 0 {
+				arcosHTML += `
+					<div class="no-movimientos">
+						<i class="fas fa-info-circle"></i>
+						<span>No hay movimientos en este arco</span>
+					</div>`
+			} else {
+				for _, mov := range arco.Movimientos {
+					tipoClass := "ingreso"
+					tipoIcon := "fa-plus-circle"
+					signo := "+"
+
+					if mov.MovementType == "Egreso" {
+						tipoClass = "egreso"
+						tipoIcon = "fa-minus-circle"
+						signo = "-"
+					} else if mov.MovementType == "RetiroCaja" {
+						tipoClass = "retiro"
+						tipoIcon = "fa-hand-holding-usd"
+						signo = "-"
+					}
+
+					conceptoNombre := "Sin concepto"
+					if mov.Concept.ConceptName != "" {
+						conceptoNombre = mov.Concept.ConceptName
+					}
+
+					arcosHTML += fmt.Sprintf(`
+					<div class="movimiento-item %s">
+						<div class="movimiento-icon">
+							<i class="fas %s"></i>
+						</div>
+						<div class="movimiento-content">
+							<div class="movimiento-main">
+								<span class="movimiento-tipo">%s</span>
+								<span class="movimiento-monto">%s%s</span>
+							</div>
+							<div class="movimiento-details">
+								<span class="detail-item">
+									<i class="fas fa-tag"></i>
+									%s
+								</span>
+								<span class="detail-item">
+									<i class="fas fa-calendar"></i>
+									%s
+								</span>
+								<span class="detail-item">
+									<i class="fas fa-user"></i>
+									%s
+								</span>
+							</div>
+							%s
+						</div>
+					</div>`,
+						tipoClass,
+						tipoIcon,
+						mov.MovementType,
+						signo,
+						formatCurrency(mov.Amount),
+						conceptoNombre,
+						mov.MovementDate.Format("02/01/2006 15:04"),
+						mov.Creator.FullName,
+						func() string {
+							if mov.Details != "" {
+								return fmt.Sprintf(`<div class="movimiento-note"><i class="fas fa-comment"></i>%s</div>`, mov.Details)
+							}
+							return ""
+						}(),
+					)
+				}
+			}
+
+			arcosHTML += `
+				</div>
+			</div>`
+		}
+	}
+
+	html := string(content)
+	html = strings.ReplaceAll(html, "{{USUARIO_ACTUAL}}", userEmail)
+	html = strings.ReplaceAll(html, "{{ARCOS_MOVIMIENTOS}}", arcosHTML)
+
+	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
+// Función auxiliar para formatear moneda
+func formatCurrency(amount float64) string {
+	return fmt.Sprintf("$%.2f", amount)
 }
 
 // POST /abrir-caja (desde movimientos.html)
