@@ -108,29 +108,25 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 		protected.GET("/api/movimientos/arco/:arco_id", movementController.GetMovementsByArcoID)
 		protected.DELETE("/api/movimientos/:movement_id", movementController.DeleteMovement)
 		protected.GET("/reporte", controllers.MostrarPaginaReportes)
+
 		//coso para todos los movimientos
 		protected.GET("/historial-movimientos", movementController.HistorialMovimientosPage)
 
 		protected.POST("/api/change-password", authController.ChangePassword)
 
-		protected.GET("/registro_usuarios", func(c *gin.Context) {
-			c.File("./Front/registro_usuarios.html")
-		})
-		protected.GET("/registro_roles", func(c *gin.Context) {
-			c.File("./Front/registro_roles.html")
-		})
-
 		adminController := controllers.NewAdminController()
 
+		// API de conceptos
 		protected.GET("/registro_conceptos", adminController.ConceptosPage)
 
-		// API de conceptos
 		protected.GET("/api/admin/conceptos", adminController.GetConceptos)
 		protected.POST("/api/admin/conceptos", adminController.CreateConcepto)
 		protected.PUT("/api/admin/conceptos/:id", adminController.UpdateConcepto)
 		protected.DELETE("/api/admin/conceptos/:id", adminController.DeleteConcepto)
 
 		// Rutas de usuarios y roles
+		protected.GET("/registro_roles", adminController.RolesPage)
+
 		protected.GET("/api/admin/usuarios", adminController.GetUsuarios)
 		protected.POST("/api/admin/usuarios", adminController.CreateUsuario)
 		protected.PUT("/api/admin/usuarios/:id", adminController.UpdateUsuario)
@@ -138,6 +134,7 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 		protected.POST("/api/admin/usuarios/:id/reset-password", adminController.ResetPasswordUsuario)
 
 		protected.GET("/api/admin/roles", adminController.GetRoles)
+
 		protected.POST("/api/admin/roles", adminController.CreateRole)
 		protected.PUT("/api/admin/roles/:id", adminController.UpdateRole)
 		protected.DELETE("/api/admin/roles/:id", adminController.DeleteRole)
