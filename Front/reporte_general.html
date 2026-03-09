@@ -1,11 +1,320 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arcos</title>
+    <link rel="stylesheet" href="css/reporte.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>MegaAdmin - Vista Global de Caja</title>
+    <style>
+        /* Estilos específicos para vista global */
+        .global-indicator {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .global-indicator i {
+            font-size: 2rem;
+        }
+        
+        .global-indicator span {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .col-usuario {
+            font-weight: 600;
+            color: var(--primary-color, #4F46E5);
+        }
+        
+        /* Badge para identificar tipo de caja */
+        .caja-type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .caja-type-badge.global {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .caja-type-badge.personal {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+    </style>
 </head>
 <body>
-    
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-globe"></i>
+                    <h1>Vista Global de Caja</h1>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="/movimientos" class="header-btn btn-primary">
+                    <i class="fas fa-home"></i>
+                    <span>Volver al Dashboard</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- Indicador de Vista Global -->
+        <div class="global-indicator">
+            <i class="fas fa-globe"></i>
+            <div style="flex: 1;">
+                <div style="font-size: 1.2rem; font-weight: 600;">Vista Global - Administrador General</div>
+                <div style="font-size: 0.9rem; opacity: 0.9;">Movimientos de todos los usuarios en la caja global</div>
+            </div>
+            <span class="caja-type-badge global">
+                <i class="fas fa-users"></i>
+                Caja Global
+            </span>
+        </div>
+
+        {{if .Error}}
+        <!-- Mensaje de Error -->
+        <div class="error-state" style="padding: 2rem; text-align: center; background: #fee; border-radius: 12px; margin: 2rem 0;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #c33; margin-bottom: 1rem;"></i>
+            <h3 style="color: #c33; margin-bottom: 0.5rem;">Error al cargar la vista global</h3>
+            <p style="color: #666;">{{.Error}}</p>
+            <a href="/arco/abrir" class="btn btn-primary" style="margin-top: 1rem; display: inline-flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-plus"></i>
+                <span>Abrir Caja Global</span>
+            </a>
+        </div>
+        {{else}}
+        
+        <!-- Título Principal -->
+        <div class="page-header">
+            <div class="page-title">
+                <i class="fas fa-file-alt"></i>
+                <div>
+                    <h2>Informe Global - Caja Consolidada</h2>
+                    <p>Análisis completo de todos los movimientos de la caja global</p>
+                </div>
+            </div>
+            <div class="page-actions">
+                <button class="btn btn-secondary" onclick="window.print()">
+                    <i class="fas fa-print"></i>
+                    <span>Imprimir</span>
+                </button>
+                <div class="export-dropdown">
+                    <button class="btn btn-success" id="exportDropdownBtn">
+                        <i class="fas fa-download"></i>
+                        <span>Exportar</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="export-menu" id="exportMenu">
+                        <button class="export-option" id="exportPDF">
+                            <i class="fas fa-file-pdf"></i>
+                            <span>Exportar PDF</span>
+                        </button>
+                        <button class="export-option" id="exportExcel">
+                            <i class="fas fa-file-excel"></i>
+                            <span>Exportar Excel</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Información del Arco Global -->
+        <div class="info-section">
+            <div class="section-header">
+                <h3><i class="fas fa-info-circle"></i> Información de la Caja Global</h3>
+            </div>
+            <div id="infoArco" class="arco-info-card">
+                {{if .Arco}}
+                <div class="arco-info-grid">
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="fas fa-hashtag"></i>
+                            ID del Arco
+                        </div>
+                        <div class="info-value">{{.Arco.ID}}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="fas fa-clock"></i>
+                            Turno
+                        </div>
+                        <div class="info-value">{{if eq .Arco.Turno "M"}}Mañana{{else}}Tarde{{end}}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="fas fa-calendar-alt"></i>
+                            Fecha Apertura
+                        </div>
+                        <div class="info-value">{{.Arco.FechaApertura.Format "02/01/2006 15:04"}}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="fas fa-calendar-check"></i>
+                            Fecha Cierre
+                        </div>
+                        <div class="info-value">{{if .Arco.FechaCierre}}{{.Arco.FechaCierre.Format "02/01/2006 15:04"}}{{else}}<span style="color: #10b981;">Abierto</span>{{end}}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="fas fa-user-shield"></i>
+                            Abierto por
+                        </div>
+                        <div class="info-value">{{if .Arco.Owner.FullName}}{{.Arco.Owner.FullName}}{{else}}Sistema{{end}}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="fas fa-globe"></i>
+                            Tipo
+                        </div>
+                        <div>
+                            <span class="caja-type-badge global">
+                                <i class="fas fa-users"></i>
+                                Caja Global
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="{{if .Arco.FechaCierre}}fas fa-lock{{else}}fas fa-unlock{{end}}"></i>
+                            Estado
+                        </div>
+                        <div class="status-badge {{if .Arco.FechaCierre}}closed{{else}}open{{end}}">
+                            <i class="{{if .Arco.FechaCierre}}fas fa-lock{{else}}fas fa-unlock{{end}}"></i>
+                            {{if .Arco.FechaCierre}}Cerrado{{else}}Abierto{{end}}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">
+                            <i class="fas fa-dollar-sign"></i>
+                            Saldo Inicial
+                        </div>
+                        <div class="info-value" style="font-size: 1.2rem; font-weight: 700; color: #4F46E5;">
+                            ${{printf "%.2f" .Arco.SaldoInicial}}
+                        </div>
+                    </div>
+                </div>
+                {{else}}
+                <div class="error-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>No se encontró información de la caja global.</span>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Resumen Financiero Global -->
+        <div class="summary-section">
+            <div class="section-header">
+                <h3><i class="fas fa-calculator"></i> Resumen Financiero Global</h3>
+            </div>
+            <div id="conclusionesContainer" class="summary-cards">
+                <!-- Se llena dinámicamente con JavaScript -->
+            </div>
+        </div>
+
+        <!-- Tabla de Movimientos Globales -->
+        <div class="table-section">
+            <div class="section-header">
+                <h3><i class="fas fa-table"></i> Detalle de Movimientos - Todos los Usuarios</h3>
+                <div class="table-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Buscar por usuario, concepto, detalle...">
+                    </div>
+                    <div class="filter-controls">
+                        <select id="filterType" class="filter-select">
+                            <option value="">Todos los tipos</option>
+                            <option value="Ingreso">Ingresos</option>
+                            <option value="Egreso">Egresos</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="table-container">
+                <div id="tablaMovimientos" class="table-wrapper">
+                    {{if .Movimientos}}
+                    <table class="tabla-movimientos">
+                        <thead>
+                            <tr>
+                                <th class="col-id">ID</th>
+                                <th class="col-usuario"><i class="fas fa-user"></i> Usuario</th>
+                                <th class="col-fecha">Fecha y Hora</th>
+                                <th class="col-tipo">Tipo</th>
+                                <th class="col-concepto">Concepto</th>
+                                <th class="col-monto">Monto</th>
+                                <th class="col-detalle">Detalles</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Movimientos}}
+                            <tr>
+                                <td class="col-id">{{.MovementID}}</td>
+                                <td class="col-usuario">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <i class="fas fa-user-circle" style="color: #667eea;"></i>
+                                        <strong>{{if .Creator.FullName}}{{.Creator.FullName}}{{else}}No especificado{{end}}</strong>
+                                    </div>
+                                </td>
+                                <td class="col-fecha">{{.MovementDate.Format "02/01/2006 15:04"}}</td>
+                                <td class="col-tipo">
+                                    <span class="{{if eq .MovementType "Ingreso"}}tipo-ingreso{{else}}tipo-egreso{{end}}">
+                                        {{.MovementType}}
+                                    </span>
+                                </td>
+                                <td class="col-concepto">{{if .Concept.ConceptName}}{{.Concept.ConceptName}}{{else}}Sin concepto{{end}}</td>
+                                <td class="col-monto {{if eq .MovementType "Ingreso"}}monto-positivo{{else}}monto-negativo{{end}}">
+                                    {{if eq .MovementType "Ingreso"}}+{{else}}-{{end}}${{printf "%.2f" .Amount}}
+                                </td>
+                                <td class="col-detalle">{{if .Details}}{{.Details}}{{else}}Sin detalles{{end}}</td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                    {{else}}
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>No hay movimientos para mostrar en la caja global.</p>
+                        <p style="font-size: 0.9rem; color: #666; margin-top: 0.5rem;">
+                            Los movimientos aparecerán aquí cuando los usuarios registren ingresos o egresos.
+                        </p>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Botón para mostrar filtros -->
+        <div class="floating-actions">
+            <button class="fab" id="showFiltersBtn" title="Filtros Avanzados">
+                <i class="fas fa-filter"></i>
+            </button>
+        </div>
+        
+        {{end}}
+    </main>
+
+    <!-- Scripts para exportación -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="js/reporte.js"></script>
 </body>
 </html>

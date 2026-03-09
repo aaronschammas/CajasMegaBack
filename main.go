@@ -43,9 +43,14 @@ func main() {
 	}
 	utils.Logger.Info("AuthService inicializado correctamente")
 
-	// 4. Inicializar base de datos
+	// 4. Inicializar base de datos MySQL
 	database.InitDB()
-	utils.Logger.Info("Base de datos inicializada correctamente")
+	utils.Logger.Info("Base de datos MySQL inicializada correctamente")
+
+	// 4b. Inicializar MongoDB (alquileres)
+	database.InitMongoDB()
+	utils.Logger.Info("MongoDB inicializado correctamente")
+	defer database.CloseMongoDB()
 
 	// 5. Configurar rutas con todos los middlewares de seguridad
 	router := routes.SetupRoutes(cfg)
@@ -82,7 +87,7 @@ func main() {
 				{cfg.EnableCSRF, "CSRF Protection habilitado"},
 				{cfg.EnableRateLimit, " Rate Limiting habilitado"},
 				{cfg.AllowedOrigins[0] != "*", "CORS configurado con orígenes específicos"},
-				{cfg.DBUser != "root", "Usuario de BD no es root"},
+				{cfg.DBUser != "root", "Usuario de BD MySQL no es root"},
 			}
 
 			for _, item := range checkList {

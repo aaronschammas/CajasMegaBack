@@ -93,32 +93,40 @@ func (s *MovementService) CreateBatchMovements(movements []models.MovementReques
 					return fmt.Errorf("%w: %s", ErrCreateMovement, err.Error())
 				}
 			}
+
+			// Ya no se replican movimientos en caja global porque no existen cajas globales físicas
+			// La "caja global" es solo una vista calculada de la suma de todas las cajas personales
 		}
 		return nil //
 	})
 }
 
-// generateReferenceID AHORA TOMA *gorm.DB (tx) para la transacción
-// ¡ESTA FUNCIÓN NECESITA SER REVISADA PARA UN CONTADOR GLOBAL ATÓMICO Y ROBUSTO!
-// La implementación actual es un contador diario y NO es segura para concurrencia.
-func (s *MovementService) generateReferenceID(tx *gorm.DB, userID uint) (string, error) { //
-	// Formato: YYYYMMDD-ContadorDelDia-UserID
-	now := time.Now()                 //
-	dateStr := now.Format("20060102") //
-
-	var count int64 //
-	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	todayEnd := todayStart.Add(24 * time.Hour)
-
-	// Usar tx para que la cuenta sea parte de la misma transacción que la inserción del movimiento
-	if err := tx.Model(&models.Movement{}).Where("created_at >= ? AND created_at < ?", todayStart, todayEnd).Count(&count).Error; err != nil {
-		// No necesariamente retornar err aquí, podría ser 0 si no hay movimientos aún hoy
-		// Pero si hay un error de DB real, sí.
-		// Por simplicidad en el ejemplo, lo mantenemos, pero esto debe ser robusto.
+// generateReferenceID genera un reference_id único usando timestamp con microsegundos
+// Formato: YYYYMMDD-HHMMSS-Microsegundos-UserID
+// Esta implementación es thread-safe y no requiere contadores
+func (s *MovementService) generateReferenceID(tx *gorm.DB, userID uint) (string, error) {
+	now := time.Now()
+	// Formato: YYYYMMDD-HHMMSS-Microsegundos-UserID
+	// Ejemplo: 20260115-092914-123456-1
+	referenceID := fmt.Sprintf("%s-%06d-%d", 
+		now.Format("20060102-150405"), 
+		now.Nanosecond()/1000, // Microsegundos
+		userID,
+	)
+	
+	// Verificar que no exista (muy poco probable con microsegundos, pero por seguridad)
+	var exists int64
+	err := tx.Model(&models.Movement{}).Where("reference_id = ?", referenceID).Count(&exists).Error
+	if err != nil {
 		return "", err
 	}
-
-	return fmt.Sprintf("%s-%d-%d", dateStr, count+1, userID), nil //
+	
+	// Si por alguna razón existe, agregar un sufijo aleatorio
+	if exists > 0 {
+		referenceID = fmt.Sprintf("%s-%d", referenceID, now.UnixNano()%1000)
+	}
+	
+	return referenceID, nil
 }
 
 func (s *MovementService) GetMovements(filters map[string]interface{}, limit, offset int) ([]models.Movement, int64, error) { //
@@ -243,5 +251,42 @@ func (s *MovementService) GetMovementsByArcoID(arcoID uint) ([]models.Movement, 
 	if err != nil {
 		return nil, err
 	}
+	return movements, nil
+}
+
+// GetAllMovimientosFromAllCajasActivas obtiene TODOS los movimientos de TODAS las cajas personales activas
+// Este método se usa para mostrar la vista global al administrador
+func (s *MovementService) GetAllMovimientosFromAllCajasActivas() ([]models.Movement, error) {
+	var movements []models.Movement
+	
+	// Obtener los IDs de todas las cajas personales activas
+	var arcoIDs []uint
+	err := database.DB.Model(&models.Arco{}).
+		Where("is_global = ? AND activo = ?", false, true).
+		Pluck("id", &arcoIDs).Error
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	if len(arcoIDs) == 0 {
+		// No hay cajas activas, retornar lista vacía
+		return []models.Movement{}, nil
+	}
+	
+	// Obtener todos los movimientos de esas cajas
+	err = database.DB.
+		Preload("Creator").
+		Preload("Concept").
+		Preload("Arco").
+		Preload("Arco.Owner"). // Precargar el dueño de cada arco para mostrar de quién es cada movimiento
+		Where("arco_id IN ? AND deleted_at IS NULL", arcoIDs).
+		Order("created_at DESC").
+		Find(&movements).Error
+	
+	if err != nil {
+		return nil, err
+	}
+	
 	return movements, nil
 }

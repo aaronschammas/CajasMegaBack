@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de Alquileres — MegaCajas</title>
+  <link rel="stylesheet" href="/css/alquileres.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <h1><i class="fas fa-building"></i> Gestión de Alquileres</h1>
+  <div class="header-actions">
+    <a id="btnDashboard" href="/movimientos" class="btn btn-secondary btn-sm" style="display:none;">
+      <i class="fas fa-tachometer-alt"></i> Dashboard
+    </a>
+    <span class="header-user" id="headerUser"></span>
+    <button class="btn btn-secondary btn-sm" id="btnLogout">
+      <i class="fas fa-sign-out-alt"></i> Salir
+    </button>
+  </div>
+</header>
+
+<!-- CONTENIDO PRINCIPAL -->
+<div class="page">
+
+  <!-- KPIs -->
+  <div class="kpis" id="kpisContainer">
+    <div class="kpi">
+      <div class="kpi-label">Ingreso Anual Proyectado</div>
+      <div class="kpi-value" id="kpiIngreso">—</div>
+      <div class="kpi-sub">Proyección 12 meses</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Deuda Total</div>
+      <div class="kpi-value" id="kpiDeuda">—</div>
+      <div class="kpi-sub" id="kpiMeses">0 meses pendientes</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Ocupación</div>
+      <div class="kpi-value" id="kpiOcupacion">—</div>
+      <div class="kpi-sub" id="kpiPropOcup">0 de 0 ocupadas</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Pagos Atrasados</div>
+      <div class="kpi-value" id="kpiAtrasados">—</div>
+      <div class="kpi-sub" id="kpiPropAtraso">0 propiedades</div>
+    </div>
+  </div>
+
+  <!-- Panel de Reportes (solo visible para Admin General) -->
+  <div class="report-panel" id="reportPanel" style="display:none;">
+    <h2><i class="fas fa-chart-bar"></i> Resumen de Ingresos por Alquileres</h2>
+    <div class="period-tabs">
+      <button class="period-tab active" data-p="dia">Hoy</button>
+      <button class="period-tab" data-p="mes">Este Mes</button>
+      <button class="period-tab" data-p="anio">Este Año</button>
+    </div>
+    <div class="report-nums">
+      <div class="rnum"><div class="rnum-val" id="rTotal">$0</div><div class="rnum-label">Total Recaudado</div></div>
+      <div class="rnum"><div class="rnum-val" id="rCantidad">0</div><div class="rnum-label">Pagos Registrados</div></div>
+      <div class="rnum"><div class="rnum-val" id="rPromedio">$0</div><div class="rnum-label">Promedio por Pago</div></div>
+    </div>
+  </div>
+
+  <!-- Leyenda / Filtros rápidos -->
+  <div class="legend">
+    <button class="leg-btn" onclick="filtroRapido('')" id="legAll">
+      <span class="leg-dot" style="background:#94a3b8;"></span> Todas
+    </button>
+    <button class="leg-btn" onclick="filtroRapido('aldia')" id="legAldia">
+      <span class="leg-dot" style="background:#10b981;"></span> Al día
+    </button>
+    <button class="leg-btn" onclick="filtroRapido('atraso1')" id="legAtraso1">
+      <span class="leg-dot" style="background:#ef4444;"></span> Atrasado (1 mes)
+    </button>
+    <button class="leg-btn" onclick="filtroRapido('atraso2')" id="legAtraso2">
+      <span class="leg-dot" style="background:#7f1d1d;"></span> Atrasado (2+ meses)
+    </button>
+    <button class="leg-btn" onclick="filtroRapido('desocupadas')" id="legDesoc">
+      <span class="leg-dot" style="background:#cbd5e1;"></span> Desocupadas
+    </button>
+    <div class="leg-item leg-info"><span class="leg-dot" style="background:#06b6d4;"></span> Próx. actualización</div>
+    <div class="leg-item leg-info"><span class="leg-dot" style="background:#f59e0b;border:2px solid #16a34a;"></span> Paga en USD</div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input type="text" id="searchInput" placeholder="🔍  Buscar por dirección o inquilino..." oninput="applyFilters()">
+    <select id="filterEstado" onchange="applyFilters()">
+      <option value="">Todas las propiedades</option>
+      <option value="atraso1">Con 1+ meses de atraso</option>
+      <option value="atraso2">Con 2+ meses de atraso</option>
+      <option value="aldia">Al día</option>
+      <option value="desocupadas">Desocupadas</option>
+    </select>
+    <select id="filterAnio" onchange="loadPropiedades()"></select>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" id="btnNuevaPropiedad" onclick="abrirModalCrear()" style="display:none;">
+      <i class="fas fa-plus"></i> Nueva Propiedad
+    </button>
+    <button class="btn btn-secondary btn-sm" onclick="loadPropiedades()" title="Actualizar">
+      <i class="fas fa-sync-alt"></i>
+    </button>
+  </div>
+
+  <!-- Tabla -->
+  <div class="table-wrap">
+    <table id="tabla">
+      <thead>
+        <tr>
+          <th class="col-dir">Propiedad</th>
+          <th>Inquilino</th>
+          <th>Ene</th><th>Feb</th><th>Mar</th><th>Abr</th><th>May</th><th>Jun</th>
+          <th>Jul</th><th>Ago</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dic</th>
+          <th>Deuda</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tablaBody">
+        <tr><td colspan="16" style="padding:40px;text-align:center;color:#94a3b8;"><span class="spinner"></span></td></tr>
+      </tbody>
+      <tfoot id="tablaFoot"></tfoot>
+    </table>
+  </div>
+
+</div><!-- /page -->
+
+<!-- ══════════════════════════════════════════════════
+     MODAL: CREAR PROPIEDAD
+══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modalCrear">
+  <div class="modal modal-wide">
+    <button class="modal-close" onclick="cerrarModal('modalCrear')">×</button>
+    <h2>Nueva Propiedad</h2>
+
+    <!-- ── Datos básicos ── -->
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Dirección / Identificación *</label>
+        <input type="text" id="cDireccion" placeholder="Ej: Av. San Martín 1234">
+      </div>
+      <div class="form-group">
+        <label>Inquilino</label>
+        <input type="text" id="cInquilino" placeholder="Nombre del inquilino">
+      </div>
+      <div class="form-group">
+        <label>¿Ocupada?</label>
+        <select id="cOcupada">
+          <option value="true">Sí, ocupada</option>
+          <option value="false">No, desocupada</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ── Tipo de contrato ── -->
+    <div class="section-divider">
+      <span><i class="fas fa-file-contract"></i> Tipo de contrato</span>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Modalidad de pago</label>
+        <div class="toggle-group">
+          <label class="toggle-opt">
+            <input type="radio" name="cModalidad" value="pesos" checked onchange="onModalidadChange()">
+            <span><i class="fas fa-dollar-sign" style="color:#2563eb"></i> Pesos (con actualización)</span>
+          </label>
+          <label class="toggle-opt">
+            <input type="radio" name="cModalidad" value="dolares" onchange="onModalidadChange()">
+            <span><i class="fas fa-dollar-sign" style="color:#16a34a"></i> Dólares (monto fijo USD)</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Sección PESOS ── -->
+    <div id="seccionPesos" class="form-grid">
+      <div class="form-group">
+        <label>Alquiler Mensual (ARS) *</label>
+        <input type="number" id="cAlquiler" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Índice de Inflación pactado (%)</label>
+        <input type="number" id="cInflacion" placeholder="Ej: 5.0" min="0" step="0.1">
+      </div>
+      <div class="form-group">
+        <label>Fecha próxima actualización</label>
+        <input type="date" id="cFechaActualizacion">
+      </div>
+      <div class="form-group">
+        <label>Frecuencia de actualización (meses) <span style="color:#6b7280;font-weight:400;">mín. 3</span></label>
+        <input type="number" id="cFrecuencia" placeholder="Ej: 3, 6 ó 12" min="3" step="1" value="3">
+      </div>
+      <div class="form-group full">
+        <p class="form-hint"><i class="fas fa-bell"></i> Cuando llegue la fecha de actualización, el sistema te notificará con el IPC acumulado del período (datos INDEC).</p>
+      </div>
+    </div>
+
+    <!-- ── Sección DÓLARES ── -->
+    <div id="seccionDolares" class="form-grid" style="display:none;">
+      <div class="form-group">
+        <label>Monto fijo en USD *</label>
+        <input type="number" id="cMontoDolares" placeholder="Ej: 500" min="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Alquiler en ARS (cotización actual)</label>
+        <input type="number" id="cAlquilerDolares" placeholder="Se actualiza cada mes manualmente" min="0" step="0.01">
+      </div>
+      <div class="form-group full">
+        <p class="form-hint"><i class="fas fa-info-circle"></i> En modalidad dólares, el monto en ARS se actualiza manualmente cada mes con la cotización vigente. No aplica índice de inflación.</p>
+      </div>
+    </div>
+
+    <!-- ── Imágenes ── -->
+    <div class="section-divider">
+      <span><i class="fas fa-images"></i> Imágenes de la propiedad</span>
+    </div>
+    <div class="img-upload-area" id="imgUploadCrear">
+      <input type="file" id="fileInputCrear" accept="image/*" multiple style="display:none" onchange="onFilesCrear(event)">
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('fileInputCrear').click()">
+        <i class="fas fa-upload"></i> Seleccionar imágenes
+      </button>
+      <span class="img-hint">Podés subir varias a la vez (JPG, PNG, WEBP)</span>
+      <div class="img-preview-grid" id="imgPreviewCrear"></div>
+    </div>
+
+    <!-- ── Metadata personalizada ── -->
+    <div class="section-divider">
+      <span><i class="fas fa-tags"></i> Datos adicionales (opcionales)</span>
+    </div>
+    <div id="metaFieldsCrear"></div>
+    <div class="add-meta" style="margin-top:8px;">
+      <input type="text" id="metaKeyCrear" placeholder="Clave (ej: DNI, teléfono)">
+      <input type="text" id="metaValCrear" placeholder="Valor">
+      <button class="btn btn-secondary btn-sm" onclick="addMetaFieldCrear()"><i class="fas fa-plus"></i></button>
+    </div>
+
+    <div class="form-actions" style="margin-top:24px;">
+      <button class="btn btn-secondary" onclick="cerrarModal('modalCrear')">Cancelar</button>
+      <button class="btn btn-primary" onclick="crearPropiedad()"><i class="fas fa-save"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MODAL: DETALLE DE PROPIEDAD
+══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modalDetalle">
+  <div class="modal modal-wide">
+    <button class="modal-close" onclick="cerrarModal('modalDetalle')">×</button>
+    <h2 id="detalleTitulo">Propiedad</h2>
+
+    <div class="detail-grid" id="detalleGrid"></div>
+
+    <!-- Galería de imágenes -->
+    <div id="galeriaSection" style="display:none;margin-bottom:16px;">
+      <h3 class="section-title"><i class="fas fa-images"></i> Imágenes</h3>
+      <div class="galeria-grid" id="galeriaGrid"></div>
+      <div id="imgAddDetalle" style="display:none;margin-top:10px;">
+        <input type="file" id="fileInputDetalle" accept="image/*" multiple style="display:none" onchange="onFilesDetalle(event)">
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('fileInputDetalle').click()">
+          <i class="fas fa-upload"></i> Agregar imágenes
+        </button>
+      </div>
+    </div>
+
+    <!-- Estado de pagos -->
+    <h3 class="section-title"><i class="fas fa-calendar-alt"></i> Estado de Pagos</h3>
+    <div class="cal-grid" id="calGrid"></div>
+
+    <!-- Estadísticas -->
+    <div class="stats-box">
+      <h3>Estadísticas del Año</h3>
+      <div class="stat-row"><span class="stat-label">Pagos realizados</span><span class="stat-val green" id="sPagados">—</span></div>
+      <div class="stat-row"><span class="stat-label">Recaudado</span><span class="stat-val blue" id="sRecaudado">—</span></div>
+      <div class="stat-row"><span class="stat-label">Deuda acumulada</span><span class="stat-val red" id="sDeuda">—</span></div>
+      <div class="stat-row"><span class="stat-label">Meses pendientes</span><span class="stat-val orange" id="sPendientes">—</span></div>
+    </div>
+
+    <!-- Proyección (solo en modo pesos) -->
+    <div class="proj-box" id="projBox">
+      <p>Con inflación del <strong id="projInflacion">0%</strong>, el nuevo alquiler estimado sería:</p>
+      <div class="proj-amount" id="projMonto">$0</div>
+    </div>
+
+    <!-- Info dólares (solo en modo dólares) -->
+    <div class="usd-box" id="usdBox" style="display:none;">
+      <p><i class="fas fa-dollar-sign"></i> Contrato en dólares</p>
+      <div class="usd-amount" id="usdMonto">USD 0</div>
+      <p style="font-size:.85rem;opacity:.85;margin-top:6px;">El monto en ARS se actualiza manualmente cada mes con la cotización.</p>
+    </div>
+
+    <!-- Metadata -->
+    <div class="meta-section" id="metaDetalleSection">
+      <h3 class="section-title"><i class="fas fa-info-circle"></i> Datos Adicionales</h3>
+      <div class="meta-grid" id="metaDetalleGrid"></div>
+      <div class="add-meta" id="metaAddSection" style="display:none;">
+        <input type="text" id="metaKeyDetalle" placeholder="Clave">
+        <input type="text" id="metaValDetalle" placeholder="Valor">
+        <button class="btn btn-secondary btn-sm" onclick="addMetaDetalle()"><i class="fas fa-plus"></i></button>
+      </div>
+      <button class="btn btn-secondary btn-sm" id="btnToggleMeta" onclick="toggleMetaAdd()" style="margin-top:8px;display:none;">
+        <i class="fas fa-plus"></i> Agregar campo
+      </button>
+    </div>
+
+    <!-- Acciones -->
+    <div class="form-actions" style="margin-top:20px;">
+      <button class="btn btn-danger btn-sm" id="btnEliminarProp" onclick="eliminarPropiedad()" style="display:none;">
+        <i class="fas fa-trash"></i> Eliminar
+      </button>
+      <button class="btn btn-secondary btn-sm" id="btnToggleOcup" onclick="toggleOcupacion()">—</button>
+      <div class="spacer" style="flex:1;"></div>
+      <button class="btn btn-secondary" onclick="cerrarModal('modalDetalle')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MODAL: REGISTRAR PAGO
+══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modalPago">
+  <div class="modal" style="max-width:460px;">
+    <button class="modal-close" onclick="cerrarModal('modalPago')">×</button>
+    <h2>Registrar Pago</h2>
+    <div class="pay-modal-info">
+      <p>Propiedad: <strong id="pagoPropiedad">—</strong></p>
+      <p>Mes: <strong id="pagoMes">—</strong></p>
+      <p id="pagoInfoBase">Alquiler habitual: <strong id="pagoHabitual">—</strong></p>
+      <p id="pagoInfoUSD" style="display:none;">Monto USD: <strong id="pagoUSD">—</strong></p>
+    </div>
+    <div class="form-group">
+      <label>Monto Recibido (ARS) *</label>
+      <input type="number" id="pagoMonto" placeholder="0.00" min="0" step="0.01">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-secondary" onclick="cerrarModal('modalPago')">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmarPago()">
+        <i class="fas fa-check-circle"></i> Confirmar Pago
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox para imágenes -->
+<div id="lightbox" onclick="cerrarLightbox()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;align-items:center;justify-content:center;">
+  <img id="lightboxImg" style="max-width:90vw;max-height:90vh;border-radius:8px;object-fit:contain;">
+</div>
+
+<div id="toast"></div>
+  <!-- ══════════════════════════════════════════════════
+       OVERLAY: NOTIFICACIÓN DE ACTUALIZACIÓN DE ALQUILER
+  ══════════════════════════════════════════════════ -->
+  <div id="actOverlay" class="act-overlay" style="display:none;" role="dialog" aria-modal="true">
+    <div class="act-card">
+      <div class="act-header">
+        <div class="act-badge"><i class="fas fa-bell"></i> Actualización Pendiente</div>
+        <div class="act-counter" id="actCounter">1 de 1</div>
+      </div>
+      <div class="act-prop">
+        <h2 id="actDireccion"></h2>
+        <p id="actInquilino" class="act-sub"></p>
+        <p id="actFrecuencia" class="act-sub"></p>
+      </div>
+      <div class="act-ipc-section">
+        <div class="act-ipc-title">
+          <i class="fas fa-chart-line"></i> Inflación del período
+          <span class="act-fuente" id="actFuente">INDEC vía ArgentinaDatos</span>
+        </div>
+        <div id="actTablaWrap">
+          <table class="act-table">
+            <thead><tr><th>Mes</th><th>IPC (%)</th></tr></thead>
+            <tbody id="actTablaCuerpo"></tbody>
+            <tfoot><tr class="act-table-total"><td>Acumulado</td><td id="actAcumulado" class="act-pct-big">0%</td></tr></tfoot>
+          </table>
+        </div>
+        <div id="actSinDatos" class="act-sin-datos" style="display:none;">
+          <i class="fas fa-exclamation-triangle"></i> Sin datos de IPC disponibles. Podés ingresar el monto manualmente.
+        </div>
+      </div>
+      <div class="act-montos">
+        <div class="act-monto-box">
+          <div class="act-monto-label">Monto actual</div>
+          <div class="act-monto-val" id="actMontoActual">$0</div>
+        </div>
+        <div class="act-arrow"><i class="fas fa-arrow-right"></i></div>
+        <div class="act-monto-box act-monto-rec">
+          <div class="act-monto-label">Recomendado <span id="actPctLabel"></span></div>
+          <div class="act-monto-val act-monto-rec-val" id="actMontoRecomendado">$0</div>
+        </div>
+      </div>
+      <div class="act-input-group">
+        <label for="actMontoInput"><i class="fas fa-handshake"></i> Monto acordado</label>
+        <div class="act-input-wrap">
+          <span class="act-currency">$</span>
+          <input type="number" id="actMontoInput" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <p class="act-input-hint">Precompletado con el valor recomendado. Podés modificarlo.</p>
+      </div>
+      <div class="act-input-group" style="margin-top:10px;">
+        <label for="actNotasInput"><i class="fas fa-comment-alt"></i> Notas (opcional)</label>
+        <input type="text" id="actNotasInput" placeholder="Ej: acordado con inquilino el 05/03/2026">
+      </div>
+      <div id="actPosponerSection" class="act-posponer" style="display:none;">
+        <div class="act-posponer-title"><i class="fas fa-calendar-alt"></i> Recordar a partir de:</div>
+        <input type="date" id="actPosponerFecha" class="act-date-input">
+        <p class="act-input-hint">El recordatorio volverá a aparecer en esa fecha.</p>
+      </div>
+      <div class="act-actions">
+        <button class="btn btn-secondary act-btn-posponer" id="actBtnPosponer" onclick="actTogglePosponer()">
+          <i class="fas fa-clock"></i> Posponer
+        </button>
+        <div class="act-actions-right">
+          <button class="btn btn-secondary" id="actBtnSiguiente" onclick="actSiguiente()" style="display:none;">
+            Siguiente <i class="fas fa-arrow-right"></i>
+          </button>
+          <button class="btn btn-success" id="actBtnActualizar" onclick="actConfirmar()">
+            <i class="fas fa-check"></i> Actualizar monto
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script src="/js/alquileres.js"></script>
+</body>
+</html>

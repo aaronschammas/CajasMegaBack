@@ -9,32 +9,33 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GET /api/arco-estado
-func EstadoArcoAPIHandler(ctx *gin.Context) {
-	arcoService := services.NewArcoService()
-	abierto, err := arcoService.UltimoArcoAbiertoOCerrado()
-	if err != nil {
-		ctx.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-	ultimo, err := arcoService.GetLastArco()
-	if err != nil {
-		ctx.JSON(200, gin.H{"arco_abierto": abierto, "arco": nil})
-		return
-	}
-	ctx.JSON(200, gin.H{"arco_abierto": abierto, "arco": ultimo})
-}
-
 // GET /api/saldo-ultimo-arco
 func SaldoUltimoArcoHandler(ctx *gin.Context) {
 	arcoService := services.NewArcoService()
-	saldo, err := arcoService.GetSaldoUltimoArco()
+	userID := ctx.GetUint("user_id")
+
+	// Verificar qué tipo de saldo se está consultando
+	isGlobalStr := ctx.Query("is_global")
+	isGlobal := isGlobalStr == "true" || isGlobalStr == "1"
+
+	fmt.Printf("[DEBUG] SaldoUltimoArcoHandler - UserID: %d, isGlobal: %t\n", userID, isGlobal)
+
+	// ✅ NOTA: El middleware RequirePermission ya validó permisos
+	// Si llegamos aquí, el usuario tiene permiso de lectura
+
+	saldo, err := arcoService.GetSaldoArcoUsuario(userID, isGlobal)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo obtener el saldo actual"})
+		fmt.Printf("[ERROR] Error al obtener saldo: %v\n", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error":      err.Error(),
+			"sugerencia": "Verifica que exista una caja abierta del tipo solicitado",
+		})
 		return
 	}
-	// Log para depuración
-	fmt.Printf("[DEBUG] Objeto saldo obtenido de la DB: %+v\n", saldo)
+
+	fmt.Printf("[DEBUG] Saldo obtenido exitosamente - ArqueoID: %d, IsGlobal: %t, SaldoTotal: %.2f\n",
+		saldo.ArqueoID, saldo.IsGlobal, saldo.SaldoTotal)
+
 	ctx.JSON(http.StatusOK, saldo)
 }
 
@@ -49,25 +50,38 @@ func NewArcoController() *ArcoController {
 }
 
 // POST /arco/abrir
+// Abre una caja personal para el usuario. Ya no existen cajas globales físicas.
 func (c *ArcoController) AbrirArco(ctx *gin.Context) {
 	turno := ctx.PostForm("turno")
 	if turno != "M" && turno != "T" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "turno inválido"})
 		return
 	}
+
 	userID := ctx.GetUint("user_id")
 	userEmail := ctx.GetString("email")
-	fmt.Println("[ARCO] Datos extraídos del contexto: user_id=", userID, "email=", userEmail)
+
+	fmt.Printf("[ARCO] Usuario %s (%d) abriendo caja personal - turno: %s\n", userEmail, userID, turno)
+
 	if userID == 0 {
-		fmt.Println("[ARCO] ERROR: user_id=0. El usuario no está autenticado correctamente o el token es inválido.")
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Usuario no autenticado correctamente. Por favor, cierre sesión y vuelva a iniciar."})
+		fmt.Println("[ARCO] ERROR: user_id=0. Usuario no autenticado.")
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Usuario no autenticado. Por favor, inicie sesión nuevamente.",
+		})
 		return
 	}
-	arco, err := c.arcoService.AbrirArco(userID, turno)
+
+	// Ignorar parámetro is_global por compatibilidad - siempre se abre caja personal
+	// El middleware RequirePermission ya validó que el usuario tiene PermOpenOwnArco
+
+	arco, err := c.arcoService.AbrirArco(userID, turno, false)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	fmt.Printf("[ARCO] Caja personal abierta exitosamente - ID: %d, Owner: %d\n", arco.ID, arco.OwnerID)
+
 	ctx.JSON(http.StatusOK, arco)
 }
 
@@ -80,7 +94,8 @@ func (c *ArcoController) CerrarArco(ctx *gin.Context) {
 		return
 	}
 	userID := ctx.GetUint("user_id")
-	// Opcional: recibir monto de retiro enviado por el cliente para crear el RetiroCaja durante el cierre
+
+	// Recibir monto de retiro y total contado
 	retiroStr := ctx.PostForm("retiro_amount")
 	var retiroAmount float64
 	if retiroStr != "" {
@@ -89,42 +104,51 @@ func (c *ArcoController) CerrarArco(ctx *gin.Context) {
 		}
 	}
 
+	totalContadoStr := ctx.PostForm("total_contado")
+	var totalContado float64
+	if totalContadoStr != "" {
+		if v, err := strconv.ParseFloat(totalContadoStr, 64); err == nil {
+			totalContado = v
+		}
+	}
+
 	arco, err := c.arcoService.CerrarArcoConRetiro(uint(arcoID), userID, retiroAmount)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	ctx.JSON(http.StatusOK, arco)
-}
 
-// GET /arco/estado
-func (c *ArcoController) EstadoArco(ctx *gin.Context) {
-	arcoService := c.arcoService
-	activo, err := arcoService.UltimoArcoAbiertoOCerrado()
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+	// Calcular diferencia si se envió total contado
+	var diferencia float64
+	if totalContado > 0 {
+		diferencia = totalContado - arco.SaldoFinal
 	}
-	ultimoArco, err := arcoService.GetLastArco()
-	if err != nil {
-		// Si no hay arco, retornamos null
-		ctx.JSON(http.StatusOK, gin.H{"arco_abierto": activo, "arco": nil})
-		return
-	}
-	ctx.JSON(http.StatusOK, gin.H{"arco_abierto": activo, "arco": ultimoArco})
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"arco":          arco,
+		"diferencia":    diferencia,
+		"total_contado": totalContado,
+	})
 }
 
 // POST /arco/abrir-avanzado
+// Abre una caja personal con opciones avanzadas
 func (c *ArcoController) AbrirArcoAvanzado(ctx *gin.Context) {
 	turno := ctx.PostForm("turno")
 	forzarNuevo := ctx.PostForm("forzar_nuevo") == "true"
 	userID := ctx.GetUint("user_id")
+
+	// Ignorar parámetro is_global por compatibilidad - siempre caja personal
+	// El middleware RequirePermission ya validó permisos
+
 	arcoService := c.arcoService
-	// Consultar el último arco global (por ID)
-	ultimo, err := c.arcoService.GetLastArco()
-	if err != nil || ultimo == nil || (ultimo.FechaCierre != nil && !ultimo.Activo) {
+
+	fmt.Printf("[ARCO] Buscando arco personal activo para usuario %d\n", userID)
+	ultimo, err := arcoService.GetArcoActivoUsuario(userID)
+
+	if err != nil || ultimo == nil || !ultimo.Activo {
 		// No hay arco abierto, abrir uno nuevo
-		arco, err := arcoService.AbrirArco(userID, turno)
+		arco, err := arcoService.AbrirArco(userID, turno, false)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -133,13 +157,18 @@ func (c *ArcoController) AbrirArcoAvanzado(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, arco)
 		return
 	}
+
 	if ultimo.Activo && !forzarNuevo {
 		// Hay un arco abierto, preguntar al usuario si continuar o forzar
-		ctx.JSON(http.StatusConflict, gin.H{"arco": ultimo, "msg": "Ya hay un arco abierto. ¿Desea continuar con el actual o abrir uno nuevo?"})
+		ctx.JSON(http.StatusConflict, gin.H{
+			"arco": ultimo,
+			"msg":  "Ya hay una caja personal abierta. ¿Desea continuar con la actual o abrir una nueva?",
+		})
 		return
 	}
-	// Si forzarNuevo o el arco está cerrado, abrir uno nuevo
-	arco, err := arcoService.AbrirArco(userID, turno)
+
+	// Si forzarNuevo, abrir uno nuevo
+	arco, err := arcoService.AbrirArco(userID, turno, false)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

@@ -69,14 +69,14 @@
         <div class="form-item">
           <label><i class="fas fa-list"></i> Concepto:</label>
           <select id="concept_id" name="concept_id" class="form-control">
-            {{CONCEPT_OPTIONS}}
+            {{.ConceptOptions}}
           </select>
         </div>
 
         <div class="form-item">
           <label><i class="fas fa-user"></i> Movimiento realizado por:</label>
-          <span id="created_by_label" class="form-info">{{CREATED_BY_LABEL}}</span>
-          <input type="text" id="created_by" name="created_by" value="{{CREATED_BY}}" class="form-control" readonly>
+          <span id="created_by_label" class="form-info">{{.CreatedByLabel}}</span>
+          <input type="text" id="created_by" name="created_by" value="{{.CreatedBy}}" class="form-control" readonly>
         </div>
 
         <div class="form-item form-full">
@@ -124,7 +124,7 @@
           </div>
           <div class="info-content">
             <span class="info-label">Usuario</span>
-            <span id="usuarioActual" class="info-value">{{USUARIO_ACTUAL}}</span>
+            <span id="usuarioActual" class="info-value">{{.UsuarioActual}}</span>
           </div>
         </div>
       </div>
@@ -167,10 +167,10 @@
           </div>
         </div>
         <div id="movimientosAgregados" class="movimientos-container">
-          {{MOVIMIENTOS_ULTIMO_ARCO}}
+          {{.MovimientosDB}}
         </div>
       </div>
-      {{FILTROS_HTML}}
+      {{.FiltrosHTML}}
     </aside>
   </main>
 

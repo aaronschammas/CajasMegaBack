@@ -190,6 +190,8 @@ func createSaldoArqueosView(db *gorm.DB) error {
 		CREATE OR REPLACE VIEW vista_saldo_arqueos AS
 		SELECT
 			a.id AS arqueo_id,
+			a.owner_id,
+			a.is_global,
 			a.fecha_apertura,
 			a.fecha_cierre,
 			a.turno,
@@ -209,7 +211,7 @@ func createSaldoArqueosView(db *gorm.DB) error {
 		LEFT JOIN
 			movements m ON m.arco_id = a.id AND m.deleted_at IS NULL
 		GROUP BY
-			a.id, a.fecha_apertura, a.fecha_cierre, a.turno, a.activo, a.saldo_inicial`
+			a.id, a.owner_id, a.is_global, a.fecha_apertura, a.fecha_cierre, a.turno, a.activo, a.saldo_inicial`
 
 	if err := db.Exec(vistaSQL).Error; err != nil {
 		return fmt.Errorf("error al crear vista: %w", err)
@@ -245,6 +247,7 @@ func createDefaultRoles(db *gorm.DB) error {
 		{RoleName: "Usuario"},
 		{RoleName: "Administrador General"},
 		{RoleName: "Supervisor"},
+		{RoleName: "Gestor de Alquileres"},
 	}
 
 	for _, role := range roles {
@@ -396,6 +399,12 @@ func createDefaultConcepts(db *gorm.DB) error {
 		{
 			ConceptName:             "Retiro de Efectivo",
 			MovementTypeAssociation: "RetiroCaja",
+			IsActive:                true,
+			CreatedBy:               userIDPtr,
+		},
+		{
+			ConceptName:             "Alquiler de Propiedad",
+			MovementTypeAssociation: "Ingreso",
 			IsActive:                true,
 			CreatedBy:               userIDPtr,
 		},

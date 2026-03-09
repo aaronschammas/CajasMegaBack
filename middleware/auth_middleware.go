@@ -72,18 +72,22 @@ func AuthMiddleware() gin.HandlerFunc { //
 		}
 		fmt.Println("[MIDDLEWARE] user_id claim extraído del token:", userIDRaw, "-> user_id usado:", userID)
 
-		// Buscar el usuario en la base de datos y guardarlo en el contexto
+		// Buscar el usuario en la base de datos con el rol precargado y guardarlo en el contexto
 		var user models.User
 		err = authService.GetUserByID(userID, &user)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuario no encontrado"})
-			c.Abort()
-			return
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuario no encontrado"})
+		c.Abort()
+		return
 		}
 		c.Set("user", &user)
 		c.Set("user_id", userID)
 		c.Set("email", user.Email)
-		c.Set("role_id", user.RoleID)
+		c.Set("role_id", user.RoleID)  // ID del rol (uint)
+		c.Set("role", user.Role.RoleName) // Nombre del rol (string)
+		
+		fmt.Printf("[MIDDLEWARE] Usuario autenticado - UserID: %d, Email: %s, RoleID: %d, RoleName: %s\n", 
+			userID, user.Email, user.RoleID, user.Role.RoleName)
 
 		c.Next() //
 	}

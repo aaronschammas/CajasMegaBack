@@ -164,7 +164,7 @@ func SanitizeHTML(input string) string {
 	return htmlPolicy.Sanitize(input)
 }
 
-// SanitizeString sanitiza un string general (quita espacios, etc.)
+// SanitizeString sanitiza un string general
 func SanitizeString(input string) string {
 	// Trimear espacios
 	input = strings.TrimSpace(input)

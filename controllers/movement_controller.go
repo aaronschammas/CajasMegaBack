@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -66,7 +67,6 @@ func (c *MovementController) DeleteMovement(ctx *gin.Context) {
 func (c *MovementController) CreateBatch(ctx *gin.Context) {
 	var req models.BatchMovementRequest
 
-	// Permitir recibir tanto JSON (API) como formulario (desde HTML)
 	if ctx.ContentType() == "application/json" {
 		raw, err := ctx.GetRawData()
 		if err != nil {
@@ -206,30 +206,99 @@ func (c *MovementController) MovementPage(ctx *gin.Context) {
 	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }
 
+// =====================================================================
+// View models para las páginas HTML (Punto 10 - Refactorización)
+// =====================================================================
+
+// MovimientosPageData contiene los datos para las páginas de ingresos y egresos.
+type MovimientosPageData struct {
+	UsuarioActual  string
+	ConceptOptions template.HTML
+	CreatedBy      uint
+	CreatedByLabel string
+	MovimientosDB  template.HTML
+	FiltrosHTML    template.HTML
+}
+
+// MovimientoView es el view model de un movimiento individual para la página de historial.
+type MovimientoView struct {
+	TipoClass      string
+	TipoIcon       string
+	Signo          string
+	MovementType   string
+	MontoStr       string
+	ConceptoNombre string
+	FechaStr       string
+	CreatorName    string
+	Details        string
+}
+
+// ArcoView es el view model de un arco con sus movimientos para la página de historial.
+type ArcoView struct {
+	ID               uint
+	TurnoLabel       string
+	FechaAperturaStr string
+	OwnerName        string
+	EstadoClass      string
+	EstadoLabel      string
+	SaldoInicialStr  string
+	TotalIngresosStr string
+	TotalEgresosStr  string
+	TotalRetirosStr  string
+	SaldoArcoStr     string
+	Movimientos      []MovimientoView
+}
+
+// HistorialPageData contiene los datos para la página de historial de movimientos.
+type HistorialPageData struct {
+	UsuarioActual string
+	Arcos         []ArcoView
+}
+
+// =====================================================================
+// Función auxiliar para formatear moneda
+// =====================================================================
+
+func formatCurrency(amount float64) string {
+	return fmt.Sprintf("$%.2f", amount)
+}
+
+// =====================================================================
+// Función auxiliar para construir el HTML de filtros (reutilizada por ingresos y egresos)
+// =====================================================================
+
+func buildFiltrosHTML() template.HTML {
+	return template.HTML(`<button id='btnFiltros' class='btn'>Filtros</button>
+	<div id='modalFiltros' style='display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:1000;'>
+	  <div style='background:#fff;padding:20px;margin:100px auto;width:400px;position:relative;'>
+		<h3>Filtros avanzados</h3>
+		<form method='GET'>
+		  <label>Fecha desde: <input type='date' name='fecha_desde'></label><br>
+		  <label>Fecha hasta: <input type='date' name='fecha_hasta'></label><br>
+		  <label>Usuario: <input type='text' name='usuario'></label><br>
+		  <label>Turno: <select name='turno'><option value=''>Todos</option><option value='M'>Mañana</option><option value='T'>Tarde</option></select></label><br>
+		  <label>Concepto: <input type='text' name='concepto'></label><br>
+		  <label>Tipo: <select name='tipo'><option value=''>Todos</option><option value='Ingreso'>Ingreso</option><option value='Egreso'>Egreso</option></select></label><br>
+		  <button type='submit' class='btn'>Aplicar</button>
+		  <button type='button' id='cerrarModal' class='btn'>Cerrar</button>
+		</form>
+	  </div>
+	</div>
+	<script>
+	  document.getElementById('btnFiltros').onclick = function(){document.getElementById('modalFiltros').style.display='block';}
+	  document.getElementById('cerrarModal').onclick = function(){document.getElementById('modalFiltros').style.display='none';}
+	</script>`)
+}
+
+// =====================================================================
+// Páginas HTML
+// =====================================================================
+
 // GET /ingresos (HTML)
 func (c *MovementController) IngresosPage(ctx *gin.Context) {
 	userEmail := ctx.GetString("email")
-	var userID uint64
-	if v, exists := ctx.Get("user_id"); exists {
-		switch val := v.(type) {
-		case float64:
-			userID = uint64(val)
-		case int:
-			userID = uint64(val)
-		case int64:
-			userID = uint64(val)
-		case uint:
-			userID = uint64(val)
-		case uint64:
-			userID = val
-		case string:
-			parsed, err := strconv.ParseUint(val, 10, 64)
-			if err == nil {
-				userID = parsed
-			}
-		}
-	}
-	createdByLabel := userEmail
+	userID := ctx.GetUint("user_id")
+
 	concepts, err := conceptService.GetActiveConcepts()
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "Error al obtener conceptos")
@@ -264,6 +333,15 @@ func (c *MovementController) IngresosPage(ctx *gin.Context) {
 		return
 	}
 
+	// Construir opciones de concepto
+	options := ""
+	for _, concept := range concepts {
+		if concept.MovementTypeAssociation == "Ingreso" || concept.MovementTypeAssociation == "Ambos" {
+			options += fmt.Sprintf(`<option value="%d">%s (%s)</option>`, concept.ConceptID, concept.ConceptName, concept.MovementTypeAssociation)
+		}
+	}
+
+	// Construir listado de movimientos del arco actual
 	movsHTML := ""
 	for _, m := range movements {
 		movsHTML += fmt.Sprintf(
@@ -276,71 +354,32 @@ func (c *MovementController) IngresosPage(ctx *gin.Context) {
 			m.MovementType,
 		)
 	}
-	content, err := os.ReadFile("./Front/ingresos.html")
+
+	data := MovimientosPageData{
+		UsuarioActual:  userEmail,
+		ConceptOptions: template.HTML(options),
+		CreatedBy:      userID,
+		CreatedByLabel: userEmail,
+		MovimientosDB:  template.HTML(movsHTML),
+		FiltrosHTML:    buildFiltrosHTML(),
+	}
+
+	tmpl, err := template.ParseFiles("./Front/ingresos.html")
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "Error al cargar la página")
 		return
 	}
-	options := ""
-	for _, concept := range concepts {
-		if concept.MovementTypeAssociation == "Ingreso" || concept.MovementTypeAssociation == "Ambos" {
-			options += fmt.Sprintf("<option value=\"%d\">%s (%s)</option>", concept.ConceptID, concept.ConceptName, concept.MovementTypeAssociation)
-		}
-	}
-	html := strings.ReplaceAll(string(content), "{{USUARIO_ACTUAL}}", userEmail)
-	html = strings.ReplaceAll(html, "{{CONCEPT_OPTIONS}}", options)
-	html = strings.ReplaceAll(html, "{{CREATED_BY}}", fmt.Sprintf("%d", userID))
-	html = strings.ReplaceAll(html, "{{CREATED_BY_LABEL}}", createdByLabel)
-	html = strings.ReplaceAll(html, "{{MOVIMIENTOS_DB}}", movsHTML)
 
-	filtrosHTML := `<button id='btnFiltros' class='btn'>Filtros</button>
-	<div id='modalFiltros' style='display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:1000;'>
-	  <div style='background:#fff;padding:20px;margin:100px auto;width:400px;position:relative;'>
-		<h3>Filtros avanzados</h3>
-		<form method='GET' action='/ingresos'>
-		  <label>Fecha desde: <input type='date' name='fecha_desde'></label><br>
-		  <label>Fecha hasta: <input type='date' name='fecha_hasta'></label><br>
-		  <label>Usuario: <input type='text' name='usuario'></label><br>
-		  <label>Turno: <select name='turno'><option value=''>Todos</option><option value='M'>Mañana</option><option value='T'>Tarde</option></select></label><br>
-		  <label>Concepto: <input type='text' name='concepto'></label><br>
-		  <label>Tipo: <select name='tipo'><option value=''>Todos</option><option value='Ingreso'>Ingreso</option><option value='Egreso'>Egreso</option></select></label><br>
-		  <button type='submit' class='btn'>Aplicar</button>
-		  <button type='button' id='cerrarModal' class='btn'>Cerrar</button>
-		</form>
-	  </div>
-	</div>
-	<script>
-	  document.getElementById('btnFiltros').onclick = function(){document.getElementById('modalFiltros').style.display='block';}
-	  document.getElementById('cerrarModal').onclick = function(){document.getElementById('modalFiltros').style.display='none';}
-	</script>`
-	html = strings.Replace(html, "{{FILTROS_HTML}}", filtrosHTML, 1)
-	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+	ctx.Status(http.StatusOK)
+	ctx.Header("Content-Type", "text/html; charset=utf-8")
+	tmpl.Execute(ctx.Writer, data)
 }
 
 // GET /egresos (HTML)
 func (c *MovementController) EgresosPage(ctx *gin.Context) {
 	userEmail := ctx.GetString("email")
-	var userID uint64
-	if v, exists := ctx.Get("user_id"); exists {
-		switch val := v.(type) {
-		case float64:
-			userID = uint64(val)
-		case int:
-			userID = uint64(val)
-		case int64:
-			userID = uint64(val)
-		case uint:
-			userID = uint64(val)
-		case uint64:
-			userID = val
-		case string:
-			parsed, err := strconv.ParseUint(val, 10, 64)
-			if err == nil {
-				userID = parsed
-			}
-		}
-	}
-	createdByLabel := userEmail
+	userID := ctx.GetUint("user_id")
+
 	concepts, err := conceptService.GetActiveConcepts()
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "Error al obtener conceptos")
@@ -375,6 +414,15 @@ func (c *MovementController) EgresosPage(ctx *gin.Context) {
 		return
 	}
 
+	// Construir opciones de concepto
+	options := ""
+	for _, concept := range concepts {
+		if concept.MovementTypeAssociation == "Egreso" || concept.MovementTypeAssociation == "Ambos" {
+			options += fmt.Sprintf(`<option value="%d">%s (%s)</option>`, concept.ConceptID, concept.ConceptName, concept.MovementTypeAssociation)
+		}
+	}
+
+	// Construir listado de movimientos del arco actual
 	movsHTML := ""
 	for _, m := range movements {
 		movsHTML += fmt.Sprintf(
@@ -387,37 +435,35 @@ func (c *MovementController) EgresosPage(ctx *gin.Context) {
 			m.MovementType,
 		)
 	}
-	content, err := os.ReadFile("./Front/egresos.html")
+
+	data := MovimientosPageData{
+		UsuarioActual:  userEmail,
+		ConceptOptions: template.HTML(options),
+		CreatedBy:      userID,
+		CreatedByLabel: userEmail,
+		MovimientosDB:  template.HTML(movsHTML),
+		FiltrosHTML:    buildFiltrosHTML(),
+	}
+
+	tmpl, err := template.ParseFiles("./Front/egresos.html")
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "Error al cargar la página")
 		return
 	}
-	options := ""
-	for _, concept := range concepts {
-		if concept.MovementTypeAssociation == "Egreso" || concept.MovementTypeAssociation == "Ambos" {
-			options += fmt.Sprintf("<option value=\"%d\">%s (%s)</option>", concept.ConceptID, concept.ConceptName, concept.MovementTypeAssociation)
-		}
-	}
-	html := strings.ReplaceAll(string(content), "{{USUARIO_ACTUAL}}", userEmail)
-	html = strings.ReplaceAll(html, "{{CONCEPT_OPTIONS}}", options)
-	html = strings.ReplaceAll(html, "{{CREATED_BY}}", fmt.Sprintf("%d", userID))
-	html = strings.ReplaceAll(html, "{{CREATED_BY_LABEL}}", createdByLabel)
-	html = strings.ReplaceAll(html, "{{MOVIMIENTOS_DB}}", movsHTML)
-	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+
+	ctx.Status(http.StatusOK)
+	ctx.Header("Content-Type", "text/html; charset=utf-8")
+	tmpl.Execute(ctx.Writer, data)
 }
 
 // GET /historial-movimientos
 func (c *MovementController) HistorialMovimientosPage(ctx *gin.Context) {
 	userEmail := ctx.GetString("email")
-
-	// Log para debug
 	log.Println("[HISTORIAL] Iniciando carga de historial de movimientos")
 
 	var arcos []models.Arco
-
-	// Obtener arcos ordenados por fecha de apertura descendente
 	if err := database.DB.Preload("Usuario").
-		Preload("Movimientos", "deleted_at IS NULL"). // Solo movimientos no eliminados
+		Preload("Movimientos", "deleted_at IS NULL").
 		Preload("Movimientos.Concept").
 		Preload("Movimientos.Creator").
 		Order("fecha_apertura DESC").
@@ -429,233 +475,113 @@ func (c *MovementController) HistorialMovimientosPage(ctx *gin.Context) {
 
 	log.Printf("[HISTORIAL] Se cargaron %d arcos", len(arcos))
 
-	// Leer el HTML base
-	content, err := os.ReadFile("./Front/historial_movimientos.html")
+	// Convertir los datos del modelo a view models para la plantilla
+	arcoViews := make([]ArcoView, 0, len(arcos))
+	for _, arco := range arcos {
+		estadoLabel := "Abierto"
+		estadoClass := "open"
+		if arco.FechaCierre != nil {
+			estadoLabel = "Cerrado"
+			estadoClass = "closed"
+		}
+
+		turnoLabel := "Mañana"
+		if arco.Turno == "T" {
+			turnoLabel = "Tarde"
+		}
+
+		var totalIngresos, totalEgresos, totalRetiros float64
+		for _, mov := range arco.Movimientos {
+			switch mov.MovementType {
+			case "Ingreso":
+				totalIngresos += mov.Amount
+			case "Egreso":
+				totalEgresos += mov.Amount
+			case "RetiroCaja":
+				totalRetiros += mov.Amount
+			}
+		}
+		saldoArco := arco.SaldoInicial + totalIngresos - totalEgresos - totalRetiros
+
+		movViews := make([]MovimientoView, 0, len(arco.Movimientos))
+		for _, mov := range arco.Movimientos {
+			tipoClass := "ingreso"
+			tipoIcon := "fa-plus-circle"
+			signo := "+"
+			if mov.MovementType == "Egreso" {
+				tipoClass = "egreso"
+				tipoIcon = "fa-minus-circle"
+				signo = "-"
+			} else if mov.MovementType == "RetiroCaja" {
+				tipoClass = "retiro"
+				tipoIcon = "fa-hand-holding-usd"
+				signo = "-"
+			}
+
+			conceptoNombre := "Sin concepto"
+			if mov.Concept.ConceptName != "" {
+				conceptoNombre = mov.Concept.ConceptName
+			}
+
+			movViews = append(movViews, MovimientoView{
+				TipoClass:      tipoClass,
+				TipoIcon:       tipoIcon,
+				Signo:          signo,
+				MovementType:   mov.MovementType,
+				MontoStr:       formatCurrency(mov.Amount),
+				ConceptoNombre: conceptoNombre,
+				FechaStr:       mov.MovementDate.Format("02/01/2006 15:04"),
+				CreatorName:    mov.Creator.FullName,
+				Details:        mov.Details,
+			})
+		}
+
+		arcoViews = append(arcoViews, ArcoView{
+			ID:               arco.ID,
+			TurnoLabel:       turnoLabel,
+			FechaAperturaStr: arco.FechaApertura.Format("02/01/2006"),
+			OwnerName:        arco.Usuario.FullName,
+			EstadoClass:      estadoClass,
+			EstadoLabel:      estadoLabel,
+			SaldoInicialStr:  formatCurrency(arco.SaldoInicial),
+			TotalIngresosStr: formatCurrency(totalIngresos),
+			TotalEgresosStr:  formatCurrency(totalEgresos),
+			TotalRetirosStr:  formatCurrency(totalRetiros),
+			SaldoArcoStr:     formatCurrency(saldoArco),
+			Movimientos:      movViews,
+		})
+	}
+
+	data := HistorialPageData{
+		UsuarioActual: userEmail,
+		Arcos:         arcoViews,
+	}
+
+	tmpl, err := template.ParseFiles("./Front/historial_movimientos.html")
 	if err != nil {
 		log.Printf("[ERROR HISTORIAL] Error al cargar plantilla HTML: %v", err)
 		ctx.String(http.StatusInternalServerError, "Error al cargar la página: %v", err)
 		return
 	}
 
-	// Construir HTML de arcos y movimientos
-	arcosHTML := ""
-	if len(arcos) == 0 {
-		arcosHTML = `
-		<div class="empty-state">
-			<i class="fas fa-inbox"></i>
-			<p>No hay movimientos registrados</p>
-		</div>`
-	} else {
-		for _, arco := range arcos {
-			estadoArco := "Abierto"
-			estadoClass := "open"
-			if arco.FechaCierre != nil {
-				estadoArco = "Cerrado"
-				estadoClass = "closed"
-			}
-
-			turnoLabel := "Mañana"
-			if arco.Turno == "T" {
-				turnoLabel = "Tarde"
-			}
-
-			// Calcular totales del arco
-			var totalIngresos, totalEgresos, totalRetiros float64
-			for _, mov := range arco.Movimientos {
-				switch mov.MovementType {
-				case "Ingreso":
-					totalIngresos += mov.Amount
-				case "Egreso":
-					totalEgresos += mov.Amount
-				case "RetiroCaja":
-					totalRetiros += mov.Amount
-				}
-			}
-			saldoArco := arco.SaldoInicial + totalIngresos - totalEgresos - totalRetiros
-
-			arcosHTML += fmt.Sprintf(`
-			<div class="arco-card">
-				<div class="arco-header">
-					<div class="arco-info">
-						<h3>
-							<i class="fas fa-folder-open"></i>
-							Arco #%d - %s
-						</h3>
-						<div class="arco-meta">
-							<span class="meta-item">
-								<i class="fas fa-calendar"></i>
-								%s
-							</span>
-							<span class="meta-item">
-								<i class="fas fa-clock"></i>
-								%s
-							</span>
-							<span class="meta-item">
-								<i class="fas fa-user"></i>
-								%s
-							</span>
-							<span class="badge badge-%s">%s</span>
-						</div>
-					</div>
-					<div class="arco-summary">
-						<div class="summary-item">
-							<span class="label">Saldo Inicial</span>
-							<span class="value">%s</span>
-						</div>
-						<div class="summary-item success">
-							<span class="label">Ingresos</span>
-							<span class="value">+%s</span>
-						</div>
-						<div class="summary-item danger">
-							<span class="label">Egresos</span>
-							<span class="value">-%s</span>
-						</div>
-						<div class="summary-item warning">
-							<span class="label">Retiros</span>
-							<span class="value">-%s</span>
-						</div>
-						<div class="summary-item total">
-							<span class="label">Saldo Final</span>
-							<span class="value">%s</span>
-						</div>
-					</div>
-				</div>
-				<div class="movimientos-list">`,
-				arco.ID,
-				turnoLabel,
-				arco.FechaApertura.Format("02/01/2006"),
-				turnoLabel,
-				arco.Usuario.FullName,
-				estadoClass,
-				estadoArco,
-				formatCurrency(arco.SaldoInicial),
-				formatCurrency(totalIngresos),
-				formatCurrency(totalEgresos),
-				formatCurrency(totalRetiros),
-				formatCurrency(saldoArco),
-			)
-
-			// Agregar movimientos del arco
-			if len(arco.Movimientos) == 0 {
-				arcosHTML += `
-					<div class="no-movimientos">
-						<i class="fas fa-info-circle"></i>
-						<span>No hay movimientos en este arco</span>
-					</div>`
-			} else {
-				for _, mov := range arco.Movimientos {
-					tipoClass := "ingreso"
-					tipoIcon := "fa-plus-circle"
-					signo := "+"
-
-					if mov.MovementType == "Egreso" {
-						tipoClass = "egreso"
-						tipoIcon = "fa-minus-circle"
-						signo = "-"
-					} else if mov.MovementType == "RetiroCaja" {
-						tipoClass = "retiro"
-						tipoIcon = "fa-hand-holding-usd"
-						signo = "-"
-					}
-
-					conceptoNombre := "Sin concepto"
-					if mov.Concept.ConceptName != "" {
-						conceptoNombre = mov.Concept.ConceptName
-					}
-
-					detalleHTML := ""
-					if mov.Details != "" {
-						detalleHTML = fmt.Sprintf(`<div class="movimiento-note"><i class="fas fa-comment"></i>%s</div>`, mov.Details)
-					}
-
-					arcosHTML += fmt.Sprintf(`
-					<div class="movimiento-item %s">
-						<div class="movimiento-icon">
-							<i class="fas %s"></i>
-						</div>
-						<div class="movimiento-content">
-							<div class="movimiento-main">
-								<span class="movimiento-tipo">%s</span>
-								<span class="movimiento-monto">%s%s</span>
-							</div>
-							<div class="movimiento-details">
-								<span class="detail-item">
-									<i class="fas fa-tag"></i>
-									%s
-								</span>
-								<span class="detail-item">
-									<i class="fas fa-calendar"></i>
-									%s
-								</span>
-								<span class="detail-item">
-									<i class="fas fa-user"></i>
-									%s
-								</span>
-							</div>
-							%s
-						</div>
-					</div>`,
-						tipoClass,
-						tipoIcon,
-						mov.MovementType,
-						signo,
-						formatCurrency(mov.Amount),
-						conceptoNombre,
-						mov.MovementDate.Format("02/01/2006 15:04"),
-						mov.Creator.FullName,
-						detalleHTML,
-					)
-				}
-			}
-
-			arcosHTML += `
-				</div>
-			</div>`
-		}
+	ctx.Status(http.StatusOK)
+	ctx.Header("Content-Type", "text/html; charset=utf-8")
+	if err := tmpl.Execute(ctx.Writer, data); err != nil {
+		log.Printf("[ERROR HISTORIAL] Error al renderizar: %v", err)
 	}
-
-	html := string(content)
-	html = strings.ReplaceAll(html, "{{USUARIO_ACTUAL}}", userEmail)
-	html = strings.ReplaceAll(html, "{{ARCOS_MOVIMIENTOS}}", arcosHTML)
-
 	log.Println("[HISTORIAL] Página generada exitosamente")
-	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
-}
-
-// Función auxiliar para formatear moneda
-func formatCurrency(amount float64) string {
-	return fmt.Sprintf("$%.2f", amount)
 }
 
 // POST /abrir-caja (desde movimientos.html)
 func (c *MovementController) AbrirCaja(ctx *gin.Context) {
-	var userID uint
-	if v, exists := ctx.Get("user_id"); exists {
-		switch val := v.(type) {
-		case float64:
-			userID = uint(val)
-		case int:
-			userID = uint(val)
-		case int64:
-			userID = uint(val)
-		case uint:
-			userID = val
-		case uint64:
-			userID = uint(val)
-		case string:
-			parsed, err := strconv.ParseUint(val, 10, 64)
-			if err == nil {
-				userID = uint(parsed)
-			}
-		}
-	}
+	userID := ctx.GetUint("user_id")
 	turno := ctx.PostForm("turno")
 	if turno != "M" && turno != "T" {
 		ctx.String(http.StatusBadRequest, "Turno inválido")
 		return
 	}
 	arcoService := services.NewArcoService()
-	_, err := arcoService.AbrirArco(userID, turno)
+	_, err := arcoService.AbrirArco(userID, turno, false)
 	if err != nil {
 		ctx.String(http.StatusBadRequest, "Error al abrir caja: %s", err.Error())
 		return

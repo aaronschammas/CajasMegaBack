@@ -3,12 +3,13 @@ const agregarBtn = document.getElementById('agregarBtn');
 // --- PILA DE MOVIMIENTOS Y ENVÍO AL BACKEND ---
 let pilaMovimientos = [];
 
-function crearMovimiento(fecha, monto, movimiento, turno, realizadoPor) {
+function crearMovimiento(fecha, monto, movimiento, turno, realizadoPor, index) {
   const div = document.createElement('div');
   div.classList.add('movimiento-list');
+  div.dataset.index = index; // Guardar el índice para poder eliminarlo del array
 
   div.innerHTML = `
-    <p><strong>${fecha}</strong> - $${monto} - ${movimiento} - Turno: ${turno} - Por: ${realizadoPor}</p>
+    <p><strong>${fecha}</strong> - ${monto} - ${movimiento} - Turno: ${turno} - Por: ${realizadoPor}</p>
     <div class="action-buttons">
       <button class="edit-btn">Editar/Ver</button>
       <button class="delete-btn" title="Eliminar">×</button>
@@ -18,7 +19,13 @@ function crearMovimiento(fecha, monto, movimiento, turno, realizadoPor) {
   // Función para eliminar el movimiento de la pila
   const deleteBtn = div.querySelector('.delete-btn');
   deleteBtn.addEventListener('click', () => {
-    div.remove();
+    const idx = parseInt(div.dataset.index);
+    // CORRECCIÓN: Eliminar del array pilaMovimientos usando splice
+    if (!isNaN(idx) && idx >= 0 && idx < pilaMovimientos.length) {
+      pilaMovimientos.splice(idx, 1);
+      // Re-renderizar toda la pila para actualizar los índices
+      renderPilaMovimientos();
+    }
   });
 
   return div;
@@ -27,14 +34,15 @@ function crearMovimiento(fecha, monto, movimiento, turno, realizadoPor) {
 function renderPilaMovimientos() {
   const movimientosPendientes = document.getElementById('movimientosPendientes');
   movimientosPendientes.innerHTML = '';
-  pilaMovimientos.forEach(mov => {
+  pilaMovimientos.forEach((mov, index) => {
     const fecha = mov.fecha || new Date().toLocaleDateString();
     const nuevoMovimiento = crearMovimiento(
       fecha,
       mov.amount,
       mov.movement_type,
       mov.shift,
-      mov.created_by
+      mov.created_by,
+      index // CORRECCIÓN: Pasar el índice al crear el movimiento
     );
     movimientosPendientes.appendChild(nuevoMovimiento);
   });

@@ -91,7 +91,9 @@ type SpecificExpense struct {
 // Arco representa la apertura/cierre de caja (arco)
 type Arco struct {
 	ID            uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	CreatedBy     uint       `gorm:"not null" json:"created_by"`
+	CreatedBy     uint       `gorm:"not null" json:"created_by"` // Usuario que creó el arco
+	OwnerID       uint       `gorm:"not null" json:"owner_id"`   // NUEVO: Dueño de la caja
+	IsGlobal      bool       `gorm:"default:false" json:"is_global"` // NUEVO: Si es caja global (solo para Admin General)
 	FechaApertura time.Time  `gorm:"not null" json:"fecha_apertura"`
 	HoraApertura  time.Time  `gorm:"not null" json:"hora_apertura"`
 	FechaCierre   *time.Time `json:"fecha_cierre,omitempty"`
@@ -102,6 +104,7 @@ type Arco struct {
 	SaldoInicial  float64    `gorm:"type:decimal(15,2);default:0" json:"saldo_inicial"` // Saldo con el que comienza el arco
 	SaldoFinal    float64    `gorm:"type:decimal(15,2);default:0" json:"saldo_final"`   // Saldo con el que termina el arco
 	Usuario       User       `gorm:"foreignKey:CreatedBy" json:"usuario,omitempty"`
+	Owner         User       `gorm:"foreignKey:OwnerID" json:"owner,omitempty"` // NUEVO: Relación con el dueño
 	Movimientos   []Movement `gorm:"foreignKey:ArcoID" json:"movimientos,omitempty"`
 }
 
@@ -130,13 +133,15 @@ type BatchMovementRequest struct {
 // Es un modelo de solo lectura para los resultados de la vista 'vista_saldo_arqueos'.
 type VistaSaldoArqueo struct {
 	ArqueoID      uint       `gorm:"column:arqueo_id" json:"arqueo_id"`
+	OwnerID       uint       `gorm:"column:owner_id" json:"owner_id"` // NUEVO
+	IsGlobal      bool       `gorm:"column:is_global" json:"is_global"` // NUEVO
 	FechaApertura *time.Time `gorm:"column:fecha_apertura" json:"fecha_apertura"`
 	FechaCierre   *time.Time `gorm:"column:fecha_cierre" json:"fecha_cierre"`
 	Turno         string     `gorm:"column:turno" json:"turno"`
 	Activo        bool       `gorm:"column:activo" json:"activo"`
-	SaldoInicial  float64    `gorm:"column:saldo_inicial" json:"saldo_inicial"` // CAMPO AÑADIDO
+	SaldoInicial  float64    `gorm:"column:saldo_inicial" json:"saldo_inicial"`
 	TotalIngresos float64    `gorm:"column:total_ingresos" json:"total_ingresos"`
 	TotalEgresos  float64    `gorm:"column:total_egresos" json:"total_egresos"`
-	TotalRetiros  float64    `gorm:"column:total_retiros" json:"total_retiros"` // CAMPO AÑADIDO
-	SaldoTotal    float64    `gorm:"column:saldo_total" json:"saldo_total"`     // Ahora incluye saldo_inicial
+	TotalRetiros  float64    `gorm:"column:total_retiros" json:"total_retiros"`
+	SaldoTotal    float64    `gorm:"column:saldo_total" json:"saldo_total"`
 }

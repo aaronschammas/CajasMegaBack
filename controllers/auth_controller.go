@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"caja-fuerte/config"
-	"caja-fuerte/models"
 	"caja-fuerte/services"
 	"caja-fuerte/utils"
 	"caja-fuerte/validators"
@@ -42,8 +41,11 @@ func (c *AuthController) Login(ctx *gin.Context) {
 			zap.Error(err),
 		)
 
-		// Redirigir de vuelta al login con error en query param
-		ctx.Redirect(http.StatusFound, "/api/login?error="+err.Error())
+		// Devolver error en JSON
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Credenciales inválidas. Por favor, verifica tu usuario y contraseña.",
+		})
 		return
 	}
 
@@ -56,8 +58,11 @@ func (c *AuthController) Login(ctx *gin.Context) {
 		// Log de intento fallido
 		utils.LogAuthAttempt(email, false, clientIP)
 
-		// Redirigir de vuelta al login con error
-		ctx.Redirect(http.StatusFound, "/api/login?error=Credenciales+invalidas")
+		// Devolver error en JSON
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Credenciales inválidas. Por favor, verifica tu usuario y contraseña.",
+		})
 		return
 	}
 
@@ -72,8 +77,19 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	// Configurar cookies de forma segura
 	c.setSecureCookies(ctx, token)
 
-	// Redirigir al dashboard
-	ctx.Redirect(http.StatusFound, "/movimientos")
+	// Determinar redirect según el rol del usuario
+	redirectTo := "/movimientos"
+	if user.Role.RoleName == "Gestor de Alquileres" {
+		redirectTo = "/alquileres"
+	}
+
+	// Devolver éxito en JSON con la URL de redirección
+	ctx.JSON(http.StatusOK, gin.H{
+		"success":     true,
+		"message":     "Login exitoso",
+		"redirect_to": redirectTo,
+		"role":        user.Role.RoleName,
+	})
 }
 
 // Register - Registro de usuarios
@@ -173,28 +189,25 @@ func (c *AuthController) setSecureCookies(ctx *gin.Context, token string) {
 }
 
 func (c *AuthController) Logout(ctx *gin.Context) {
+	// Intentar obtener el token desde las cookies
 	tokenString, _ := ctx.Cookie("session_token")
 	if tokenString == "" {
 		tokenString, _ = ctx.Cookie("jwt")
 	}
 
+	// Invalidar el token si existe
 	if tokenString != "" {
 		c.authService.InvalidateToken(tokenString)
 	}
 
-	if userObj, exists := ctx.Get("user"); exists {
-		if user, ok := userObj.(*models.User); ok {
-			utils.Logger.Info("User logged out",
-				zap.Uint("user_id", user.UserID),
-				zap.String("email", user.Email),
-			)
-		}
-	}
-
+	// Limpiar cookies
 	c.clearCookies(ctx)
 
+	// Devolver respuesta JSON exitosa
 	ctx.JSON(http.StatusOK, gin.H{
-		"message": "Logout exitoso",
+		"success":     true,
+		"message":     "Sesión cerrada exitosamente",
+		"redirect_to": "/",
 	})
 }
 

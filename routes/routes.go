@@ -23,7 +23,7 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 	r := gin.Default()
 
 	// =========================================================
-	// 1. CONFIGURACIÓN DE SESIONES (Indispensable para CSRF)
+	// CONFIGURACIÓN DE SESIONES (Indispensable para CSRF)
 	// =========================================================
 	store := cookie.NewStore([]byte(cfg.JWTSecret))
 	r.Use(sessions.Sessions("megacajas_session", store))
@@ -40,11 +40,15 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 		r.Use(middleware.CSRFMiddleware(cfg.JWTSecret))
 	}
 
+	// INICIALIZAR RBAC
+	middleware.InitRBAC()
+
 	// Controladores
 	authController := controllers.NewAuthController()
 	movementController := controllers.NewMovementController()
 	arcoController := controllers.NewArcoController()
 	adminController := controllers.NewAdminController()
+	alquilerController := controllers.NewAlquilerController()
 
 	// Archivos estáticos
 	r.Static("/css", "./Front/css")
@@ -62,11 +66,13 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 		c.JSON(200, gin.H{
 			"status":      "ok",
 			"environment": cfg.Environment,
-			"version":     "2.0.1",
+			"version":     "2.0.2",
 		})
 	})
 
-	// Rutas públicas
+	// =========================================================
+	// RUTAS PÚBLICAS (Sin autenticación)
+	// =========================================================
 	public := r.Group("/api")
 	{
 		public.GET("/login", func(c *gin.Context) {
@@ -80,82 +86,291 @@ func SetupRoutes(cfg *config.Config) *gin.Engine {
 			c.File("./Front/register.html")
 		})
 		public.POST("/register", loginLimiter, authController.Register)
-
-		public.GET("/graficos", controllers.GraficosAPIHandler)
 	}
 
-	// Rutas protegidas
+	// =========================================================
+	// RUTAS PROTEGIDAS - REQUIEREN AUTENTICACIÓN + PERMISOS
+	// =========================================================
 	protected := r.Group("")
-	protected.Use(middleware.AuthMiddleware())
+	protected.Use(middleware.AuthMiddleware()) // Verificar autenticación
 	{
-		// Movimientos
-		protected.GET("/movimientos", movementController.MovementPage)
-		protected.POST("/movimientos", movementController.CreateBatch)
-		protected.GET("/ingresos", movementController.IngresosPage)
-		protected.GET("/egresos", movementController.EgresosPage)
-		//protected.GET("/ingresos/filtros", movementController.IngresosPageWithFilters)
-		protected.POST("/ingresos", movementController.CreateBatch)
+		// =========================================================
+		// MOVIMIENTOS - Con control de permisos
+		// =========================================================
+		// Páginas HTML del dashboard — Gestor de Alquileres es redirigido a /alquileres
+		protected.GET("/movimientos",
+			middleware.RedirectGestorAlquileres(),
+			movementController.MovementPage,
+		)
+
+		// ✅ Crear movimientos - Requiere permiso específico
+		protected.POST("/movimientos",
+			middleware.RequirePermission(middleware.PermCreateMovement),
+			movementController.CreateBatch,
+		)
+
+		protected.GET("/ingresos",
+			middleware.RedirectGestorAlquileres(),
+			movementController.IngresosPage,
+		)
+		protected.GET("/egresos",
+			middleware.RedirectGestorAlquileres(),
+			movementController.EgresosPage,
+		)
+
+		// ✅ Crear ingresos - Requiere permiso específico
+		protected.POST("/ingresos",
+			middleware.RequirePermission(middleware.PermCreateMovement),
+			movementController.CreateBatch,
+		)
+
 		protected.POST("/abrir-caja", movementController.AbrirCaja)
 		protected.GET("/historial_movimientos", movementController.HistorialMovimientosPage)
 
-		// Arco
-		protected.POST("/arco/abrir", arcoController.AbrirArco)
-		protected.POST("/arco/cerrar", arcoController.CerrarArco)
-		protected.GET("/arco/estado", controllers.ArcoEstadoHandler)
-		protected.POST("/arco/abrir-avanzado", arcoController.AbrirArcoAvanzado)
+		// =========================================================
+		// ARCO - Control de apertura/cierre de caja
+		// =========================================================
+		// ✅ Abrir arco - Permite a usuarios abrir su propia caja
+		protected.POST("/arco/abrir",
+			middleware.RequirePermission(middleware.PermOpenArco, middleware.PermOpenOwnArco),
+			arcoController.AbrirArco,
+		)
 
-		// API
+		// ✅ Cerrar arco - Requiere permiso de cierre
+		protected.POST("/arco/cerrar",
+			middleware.RequirePermission(middleware.PermCloseArco),
+			arcoController.CerrarArco,
+		)
+
+		// ✅ CORREGIDO: Proteger endpoint de estado con permisos
+		protected.GET("/arco/estado",
+			middleware.RequirePermission(middleware.PermReadArco),
+			controllers.ArcoEstadoHandler,
+		)
+
+		// ✅ Arco avanzado/global - SOLO Admin General
+		protected.POST("/arco/abrir-avanzado",
+			middleware.RequirePermission(middleware.PermOpenGlobalArco),
+			arcoController.AbrirArcoAvanzado,
+		)
+
+		// =========================================================
+		// API DE DATOS - PROTEGIDAS CON RBAC
+		// =========================================================
 		protected.GET("/api/me", controllers.MeHandler)
-		protected.GET("/api/saldo-ultimo-arco", controllers.SaldoUltimoArcoHandler)
-		protected.GET("/api/arco-estado", controllers.EstadoArcoAPIHandler)
-		protected.GET("/api/movimientos/arco/:arco_id", movementController.GetMovementsByArcoID)
-		protected.DELETE("/api/movimientos/:movement_id", movementController.DeleteMovement)
 
-		// Reportes
-		protected.GET("/reporte", controllers.MostrarPaginaReportes)
-		protected.GET("/reporte_general", func(c *gin.Context) {
-			c.File("./Front/reporte_general.html")
-		})
+		// ✅ CORREGIDO: Proteger endpoint de saldo con permisos
+		protected.GET("/api/saldo-ultimo-arco",
+			middleware.RequirePermission(middleware.PermReadArco),
+			controllers.SaldoUltimoArcoHandler,
+		)
 
-		// Auth
+		protected.GET("/api/arco-estado",
+			middleware.RequirePermission(middleware.PermReadArco),
+			controllers.ArcoEstadoHandler,
+		)
+
+		// leer movimientos - Requiere permiso de lectura
+		protected.GET("/api/movimientos/arco/:arco_id",
+			middleware.RequirePermission(middleware.PermReadMovement, middleware.PermReadOwnMovement),
+			movementController.GetMovementsByArcoID,
+		)
+
+		// Eliminar movimientos - SOLO Supervisor y Admin General
+		protected.DELETE("/api/movimientos/:movement_id",
+			middleware.RequirePermission(middleware.PermDeleteMovement),
+			movementController.DeleteMovement,
+		)
+
+		// =========================================================
+		// REPORTES - Con control de acceso
+		// =========================================================
+		//  Reportes personales - Usuarios pueden ver sus reportes
+		protected.GET("/reporte",
+			middleware.RequirePermission(middleware.PermViewReports, middleware.PermViewOwnReports),
+			controllers.MostrarPaginaReportes,
+		)
+
+		// Reporte general/global - SOLO Admin General
+		protected.GET("/reporte_general",
+			middleware.RequirePermission(middleware.PermViewGlobalCaja),
+			controllers.MostrarPaginaReporteGlobal,
+		)
+
+		// =========================================================
+		// MÓDULO DE ALQUILERES
+		// Ruta oculta — accesible solo para Gestor de Alquileres y Admin General
+		// =========================================================
+
+		// Página principal del módulo
+		protected.GET("/alquileres",
+			middleware.RequirePermission(middleware.PermViewAlquileres),
+			alquilerController.AlquileresPage,
+		)
+
+		// API CRUD propiedades
+		protected.GET("/api/alquileres/propiedades",
+			middleware.RequirePermission(middleware.PermViewAlquileres),
+			alquilerController.GetPropiedades,
+		)
+		protected.GET("/api/alquileres/propiedades/:id",
+			middleware.RequirePermission(middleware.PermViewAlquileres),
+			alquilerController.GetPropiedadByID,
+		)
+		protected.POST("/api/alquileres/propiedades",
+			middleware.RequirePermission(middleware.PermManageAlquileres),
+			alquilerController.CrearPropiedad,
+		)
+		protected.PUT("/api/alquileres/propiedades/:id",
+			middleware.RequirePermission(middleware.PermManageAlquileres),
+			alquilerController.ActualizarPropiedad,
+		)
+		protected.DELETE("/api/alquileres/propiedades/:id",
+			middleware.RequirePermission(middleware.PermManageAlquileres),
+			alquilerController.EliminarPropiedad,
+		)
+		protected.DELETE("/api/alquileres/propiedades/:id/metadata/:campo",
+			middleware.RequirePermission(middleware.PermManageAlquileres),
+			alquilerController.EliminarMetadataField,
+		)
+
+		// API Pagos
+		protected.POST("/api/alquileres/propiedades/:id/pago",
+			middleware.RequirePermission(middleware.PermRegistrarPago),
+			alquilerController.RegistrarPago,
+		)
+		protected.DELETE("/api/alquileres/propiedades/:id/pago/:mes",
+			middleware.RequirePermission(middleware.PermManageAlquileres),
+			alquilerController.DeshacerPago,
+		)
+
+		// API Resumen / Reportes (solo Admin General)
+		protected.GET("/api/alquileres/resumen",
+			middleware.RequirePermission(middleware.PermViewAlquileres),
+			alquilerController.GetResumen,
+		)
+		protected.GET("/api/alquileres/resumen/movimientos",
+			middleware.RequirePermission(middleware.PermViewAlquilerReport),
+			alquilerController.GetResumenMovimientos,
+		)
+		protected.POST("/api/alquileres/actualizar-morosos",
+			middleware.RequirePermission(middleware.PermManageAlquileres),
+			alquilerController.ActualizarMorosos,
+		)
+
+		// Notificaciones de actualización de monto por IPC
+		protected.GET("/api/alquileres/actualizaciones-pendientes",
+			middleware.RequirePermission(middleware.PermViewAlquileres),
+			alquilerController.GetActualizacionesPendientes,
+		)
+		protected.PUT("/api/alquileres/propiedades/:id/actualizar-monto",
+			middleware.RequirePermission(middleware.PermManageAlquileres),
+			alquilerController.ActualizarMonto,
+		)
+		protected.POST("/api/alquileres/propiedades/:id/posponer",
+			middleware.RequirePermission(middleware.PermViewAlquileres),
+			alquilerController.PosponerActualizacion,
+		)
+
+		// =========================================================
+		// AUTH
+		// =========================================================
 		protected.POST("/logout", authController.Logout)
 		protected.POST("/api/change-password", authController.ChangePassword)
 
 		// =========================================================
-		// PÁGINAS DE ADMINISTRACIÓN (HTML)
+		// ADMINISTRACIÓN - PÁGINAS HTML
+		//  SOLO Admin General puede acceder a estas páginas
 		// =========================================================
-
-		// CONCEPTOS - Página HTML
-		protected.GET("/registro_conceptos", adminController.ConceptosPage)
-
-		// USUARIOS - Página HTML
-		protected.GET("/registro_usuarios", adminController.UsuariosPage)
-
-		// ROLES - Página HTML
-		protected.GET("/registro_roles", adminController.RolesPage)
+		admin := protected.Group("")
+		admin.Use(middleware.RequireRole("Administrador General"))
+		{
+			admin.GET("/registro_conceptos", adminController.ConceptosPage)
+			admin.GET("/registro_usuarios", adminController.UsuariosPage)
+			admin.GET("/registro_roles", adminController.RolesPage)
+		}
 
 		// =========================================================
-		// API DE ADMINISTRACIÓN (JSON)
+		// API DE ADMINISTRACIÓN - Con permisos granulares
 		// =========================================================
 
 		// API de conceptos
+		//  Listar conceptos - Todos pueden ver
 		protected.GET("/api/admin/conceptos", adminController.GetConceptos)
-		protected.POST("/api/admin/conceptos", adminController.CreateConcepto)
-		protected.PUT("/api/admin/conceptos/:id", adminController.UpdateConcepto)
-		protected.DELETE("/api/admin/conceptos/:id", adminController.DeleteConcepto)
 
-		// API de usuarios
-		protected.GET("/api/admin/usuarios", adminController.GetUsuarios)
-		protected.POST("/api/admin/usuarios", adminController.CreateUsuario)
-		protected.PUT("/api/admin/usuarios/:id", adminController.UpdateUsuario)
-		protected.DELETE("/api/admin/usuarios/:id", adminController.DeleteUsuario)
-		protected.POST("/api/admin/usuarios/:id/reset-password", adminController.ResetPasswordUsuario)
+		//  Crear concepto - Supervisor y Admin General
+		protected.POST("/api/admin/conceptos",
+			middleware.RequirePermission(middleware.PermManageConcepts),
+			adminController.CreateConcepto,
+		)
 
-		// API de roles
-		protected.GET("/api/admin/roles", adminController.GetRoles)
-		protected.POST("/api/admin/roles", adminController.CreateRole)
-		protected.PUT("/api/admin/roles/:id", adminController.UpdateRole)
-		protected.DELETE("/api/admin/roles/:id", adminController.DeleteRole)
+		//  Actualizar concepto - Supervisor y Admin General
+		protected.PUT("/api/admin/conceptos/:id",
+			middleware.RequirePermission(middleware.PermManageConcepts),
+			adminController.UpdateConcepto,
+		)
+
+		//  Eliminar concepto - Supervisor y Admin General
+		protected.DELETE("/api/admin/conceptos/:id",
+			middleware.RequirePermission(middleware.PermManageConcepts),
+			adminController.DeleteConcepto,
+		)
+
+		// API de usuarios - SOLO Admin General
+		//  Listar usuarios
+		protected.GET("/api/admin/usuarios",
+			middleware.RequirePermission(middleware.PermManageUsers),
+			adminController.GetUsuarios,
+		)
+
+		//  Crear usuario
+		protected.POST("/api/admin/usuarios",
+			middleware.RequirePermission(middleware.PermManageUsers),
+			adminController.CreateUsuario,
+		)
+
+		//  Actualizar usuario
+		protected.PUT("/api/admin/usuarios/:id",
+			middleware.RequirePermission(middleware.PermManageUsers),
+			adminController.UpdateUsuario,
+		)
+
+		//  Eliminar usuario
+		protected.DELETE("/api/admin/usuarios/:id",
+			middleware.RequirePermission(middleware.PermManageUsers),
+			adminController.DeleteUsuario,
+		)
+
+		//  Resetear contraseña
+		protected.POST("/api/admin/usuarios/:id/reset-password",
+			middleware.RequirePermission(middleware.PermManageUsers),
+			adminController.ResetPasswordUsuario,
+		)
+
+		// API de roles - SOLO Admin General
+		//  Listar roles
+		protected.GET("/api/admin/roles",
+			middleware.RequirePermission(middleware.PermManageRoles),
+			adminController.GetRoles,
+		)
+
+		//  Crear rol
+		protected.POST("/api/admin/roles",
+			middleware.RequirePermission(middleware.PermManageRoles),
+			adminController.CreateRole,
+		)
+
+		//  Actualizar rol
+		protected.PUT("/api/admin/roles/:id",
+			middleware.RequirePermission(middleware.PermManageRoles),
+			adminController.UpdateRole,
+		)
+
+		//  Eliminar rol
+		protected.DELETE("/api/admin/roles/:id",
+			middleware.RequirePermission(middleware.PermManageRoles),
+			adminController.DeleteRole,
+		)
 	}
 
 	return r

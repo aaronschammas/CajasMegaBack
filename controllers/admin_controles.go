@@ -18,7 +18,7 @@ func NewAdminController() *AdminController {
 	return &AdminController{}
 }
 
-// ================= GESTIÓN DE CONCEPTOS =================
+//                 GESTIÓN DE CONCEPTOS
 
 func (c *AdminController) ConceptosPage(ctx *gin.Context) {
 	content, err := os.ReadFile("./Front/admin_conceptos.html")
@@ -237,7 +237,7 @@ func (c *AdminController) DeleteRole(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "Rol eliminado"})
 }
 
-// ================= GESTIÓN DE USUARIOS =================
+//                 GESTIÓN DE USUARIOS
 
 func (c *AdminController) UsuariosPage(ctx *gin.Context) {
 	content, err := os.ReadFile("./Front/registro_usuarios.html")
@@ -279,7 +279,7 @@ func (c *AdminController) GetUsuarios(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, response)
 }
 
-// ✅ NUEVO: Crear usuario
+// NUEVO: Crear usuario
 func (c *AdminController) CreateUsuario(ctx *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`

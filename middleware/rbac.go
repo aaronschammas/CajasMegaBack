@@ -16,22 +16,35 @@ import (
 type Permission string
 
 const (
+	// Permisos de alquileres
+	PermViewAlquileres     Permission = "alquileres:view"
+	PermManageAlquileres   Permission = "alquileres:manage"
+	PermRegistrarPago      Permission = "alquileres:pago:registrar"
+	PermViewAlquilerReport Permission = "alquileres:report"
+
 	// Permisos de movimientos
-	PermCreateMovement Permission = "movement:create"
-	PermReadMovement   Permission = "movement:read"
-	PermUpdateMovement Permission = "movement:update"
-	PermDeleteMovement Permission = "movement:delete"
+	PermCreateMovement  Permission = "movement:create"
+	PermReadMovement    Permission = "movement:read"
+	PermReadOwnMovement Permission = "movement:read:own" // NUEVO: Solo sus movimientos
+	PermReadAllMovement Permission = "movement:read:all" // NUEVO: Todos los movimientos
+	PermUpdateMovement  Permission = "movement:update"
+	PermDeleteMovement  Permission = "movement:delete"
 
 	// Permisos de arco
-	PermOpenArco  Permission = "arco:open"
-	PermCloseArco Permission = "arco:close"
-	PermReadArco  Permission = "arco:read"
+	PermOpenArco       Permission = "arco:open"
+	PermCloseArco      Permission = "arco:close"
+	PermReadArco       Permission = "arco:read"
+	PermOpenOwnArco    Permission = "arco:open:own"    // NUEVO: Solo su arco
+	PermOpenGlobalArco Permission = "arco:open:global" // NUEVO: Arco global
+	PermViewGlobalCaja Permission = "arco:view:global" // NUEVO: Ver caja global
 
 	// Permisos administrativos
 	PermManageUsers    Permission = "admin:users"
 	PermManageRoles    Permission = "admin:roles"
 	PermManageConcepts Permission = "admin:concepts"
 	PermViewReports    Permission = "admin:reports"
+	PermViewOwnReports Permission = "admin:reports:own" // NUEVO: Solo sus reportes
+	PermViewAllReports Permission = "admin:reports:all" // NUEVO: Todos los reportes
 	PermManageBackups  Permission = "admin:backups"
 	PermManageSecrets  Permission = "admin:secrets"
 
@@ -42,36 +55,53 @@ const (
 
 // RolePermissions mapea roles a sus permisos
 var rolePermissionsMap = map[string][]Permission{
+	"Gestor de Alquileres": {
+		PermViewAlquileres,
+		PermManageAlquileres, // Puede crear y editar propiedades
+		PermRegistrarPago,
+	},
 	"Usuario": {
 		PermCreateMovement,
-		PermReadMovement,
-		PermReadArco,
-		PermOpenArco,
+		PermReadOwnMovement, // SOLO sus movimientos
+		PermOpenOwnArco,     // SOLO su arco
 		PermCloseArco,
+		PermReadArco,
 	},
 	"Supervisor": {
 		PermCreateMovement,
-		PermReadMovement,
+		PermReadOwnMovement,  // SOLO sus movimientos
 		PermUpdateMovement,
 		PermDeleteMovement,
-		PermOpenArco,
+		PermOpenOwnArco,      // SOLO su arco
 		PermCloseArco,
 		PermReadArco,
-		PermViewReports,
+		PermManageConcepts,   // Puede crear conceptos
+		PermViewOwnReports,   // SOLO sus reportes
 	},
 	"Administrador General": {
-		// Todos los permisos
+		// PERMISOS TOTALES - Puede hacer TODO
+		PermViewAlquileres,
+		PermManageAlquileres,
+		PermRegistrarPago,
+		PermViewAlquilerReport,
 		PermCreateMovement,
 		PermReadMovement,
+		PermReadOwnMovement,
+		PermReadAllMovement,  // Ver TODOS los movimientos
 		PermUpdateMovement,
 		PermDeleteMovement,
 		PermOpenArco,
+		PermOpenOwnArco,      // Su arco personal
+		PermOpenGlobalArco,   // Arco global
 		PermCloseArco,
 		PermReadArco,
-		PermManageUsers,
-		PermManageRoles,
-		PermManageConcepts,
+		PermViewGlobalCaja,   // Ver caja global
+		PermManageUsers,      // Crear/editar/eliminar usuarios
+		PermManageRoles,      // Crear/editar/eliminar roles
+		PermManageConcepts,   // Crear/editar/eliminar conceptos
 		PermViewReports,
+		PermViewOwnReports,
+		PermViewAllReports,   // Ver TODOS los reportes
 		PermManageBackups,
 		PermManageSecrets,
 		PermViewLogs,
@@ -304,6 +334,21 @@ func GetUserPermissions(userID uint) ([]Permission, error) {
 // GetRolePermissions retorna los permisos de un rol
 func GetRolePermissions(roleName string) []Permission {
 	return rolePermissionsMap[roleName]
+}
+
+// RedirectGestorAlquileres es un middleware que redirige al gestor si intenta
+// acceder a páginas HTML del dashboard principal. Solo afecta peticiones GET
+// que devuelven HTML (no APIs JSON).
+func RedirectGestorAlquileres() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role := c.GetString("role")
+		if role == "Gestor de Alquileres" {
+			c.Redirect(http.StatusFound, "/alquileres")
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
 }
 
 // AuditLog registra acciones importantes con contexto de usuario y permisos
