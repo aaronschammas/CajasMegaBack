@@ -1,0 +1,26 @@
+.env
+.env.*
+!.env.example
+
+# Frontend
+Nuevo_Front/node_modules/
+Nuevo_Front/.next/
+Nuevo_Front/out/
+Nuevo_Front/.env.local
+Nuevo_Front/.env*.local
+
+# Backend
+Backend/tmp/
+Backend/bin/
+Backend/*.exe
+Backend/*.test
+
+# Logs and OS files
+*.log
+logs/
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
