@@ -234,7 +234,7 @@ export default function UsuariosPage() {
   ]
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+    <div className="page-shell space-y-6">
       {/* Encabezado */}
       <div>
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-1">
@@ -432,4 +432,3 @@ export default function UsuariosPage() {
     </div>
   )
 }
-

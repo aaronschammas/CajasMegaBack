@@ -24,7 +24,8 @@ const nextConfig = {
 
       // ── Movimientos ───────────────────────────────────────────────────────
       // IMPORTANTE: no existe POST /egresos — ambos tipos van a POST /ingresos
-      { source: '/ingresos',                           destination: `${BACKEND}/ingresos` },
+      // Ruta proxy exclusiva: evita interceptar GET /ingresos (pantalla React).
+      { source: '/api/movimientos/batch',              destination: `${BACKEND}/ingresos` },
       { source: '/api/movimientos/arco/:arco_id',      destination: `${BACKEND}/api/movimientos/arco/:arco_id` },
       { source: '/api/movimientos/global',             destination: `${BACKEND}/api/movimientos/global` },
       { source: '/api/movimientos/:movement_id',       destination: `${BACKEND}/api/movimientos/:movement_id` },

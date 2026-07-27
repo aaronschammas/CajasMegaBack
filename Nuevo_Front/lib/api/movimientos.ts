@@ -31,5 +31,5 @@ export async function enviarPila(
 ): Promise<void> {
   // El backend soporta JSON directo: { movements: [...] }
   // Ambos tipos (Ingreso y Egreso) usan el mismo endpoint POST /ingresos
-  await apiRequest('/ingresos', { method: 'POST', body: { movements: pila } })
+  await apiRequest('/api/movimientos/batch', { method: 'POST', body: { movements: pila } })
 }

@@ -10,20 +10,25 @@ import { SaldoCard } from '@/components/movimientos/SaldoCard'
 import { ArqueoToggle } from '@/components/movimientos/ArqueoToggle'
 import { MovimientosModal } from '@/components/movimientos/MovimientosModal'
 import { useNotification } from '@/components/ui/Notification'
+import { AppIcon, AppIconName } from '@/components/ui/AppIcon'
+
+const fechaHoy = () => new Intl.DateTimeFormat('es-AR', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+}).format(new Date())
 
 export default function MovimientosPage() {
   const router = useRouter()
   const { arcoAbierto, tipoCaja, setTipoCaja, user } = useAppStore()
   const { recargar } = useArco()
-  const { isAdmin } = useRBAC()
+  const { isAdmin, can } = useRBAC()
   const { show } = useNotification()
-
   const [showModal, setShowModal] = useState(false)
   const admin = isAdmin()
 
-  useEffect(() => {
-    recargar()
-  }, [tipoCaja, recargar])
+  useEffect(() => { recargar() }, [tipoCaja, recargar])
 
   const navegar = (ruta: '/ingresos' | '/egresos') => {
     if (!arcoAbierto) {
@@ -35,113 +40,144 @@ export default function MovimientosPage() {
 
   const handleCambiarTipoCaja = (tipo: 'personal' | 'global') => {
     setTipoCaja(tipo)
-    show(`Cambiando a ${tipo === 'global' ? 'Caja Global' : 'Caja Personal'}...`, 'info')
+    show(`Cambiando a ${tipo === 'global' ? 'Caja Global' : 'Caja Personal'}…`, 'info')
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-      {user && (
-        <p className="text-right text-sm text-blue-600 font-medium">
-          Bienvenido, <strong>{user.full_name}</strong>
-        </p>
-      )}
+    <div className="page-shell space-y-6">
+      <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 px-6 py-6 text-white shadow-sm sm:px-8">
+        <div className="flex flex-wrap items-center justify-between gap-5">
+          <div>
+            <p className="mb-1 text-sm font-medium text-blue-100">Bienvenido,</p>
+            <h1 className="text-2xl font-bold sm:text-3xl">{user?.full_name || 'Usuario'}</h1>
+            <p className="mt-3 flex items-center gap-2 text-sm text-blue-100">
+              <AppIcon name="calendar" className="h-4 w-4" />
+              <span className="first-letter:uppercase">{fechaHoy()}</span>
+            </p>
+          </div>
+          <div className="rounded-xl bg-white/10 px-4 py-3 text-right backdrop-blur-sm">
+            <p className="text-xs font-medium text-blue-100">Estado del arqueo</p>
+            <p className="mt-1 flex items-center gap-2 font-bold">
+              <span className={`h-2.5 w-2.5 rounded-full ${arcoAbierto ? 'bg-emerald-300' : 'bg-amber-300'}`} />
+              {arcoAbierto ? 'Arqueo abierto' : 'Arqueo cerrado'}
+            </p>
+          </div>
+        </div>
+      </section>
 
-      <h1 className="text-2xl font-bold text-gray-800">Control de Caja</h1>
+      <header>
+        <h2 className="page-heading">Control de Caja</h2>
+        <p className="page-subtitle">Elegí una acción para comenzar o consultá el estado de la caja.</p>
+      </header>
 
       {admin && (
-        <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl border-2 border-slate-200 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+        <section className="surface-card p-5 sm:p-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-500 text-white p-2.5 rounded-xl shadow-sm">
-                <span className="text-xl">Caja</span>
-              </div>
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-700">
+                <AppIcon name="wallet" />
+              </span>
               <div>
-                <p className="font-bold text-gray-800">Vista de Caja</p>
-                <p className="text-xs text-gray-500">Selecciona que caja visualizar</p>
+                <label htmlFor="tipo-caja" className="block font-bold text-slate-800">¿Qué caja querés ver?</label>
+                <p className="text-sm text-slate-500">La selección cambia los saldos y movimientos mostrados.</p>
               </div>
             </div>
-
-            <div className="flex items-center gap-3">
+            <div className="flex w-full items-center gap-3 sm:w-auto">
               <select
+                id="tipo-caja"
                 value={tipoCaja}
-                onChange={(e) => handleCambiarTipoCaja(e.target.value as 'personal' | 'global')}
-                className="border-2 border-slate-200 rounded-xl px-4 py-2 font-semibold text-sm bg-white focus:ring-2 focus:ring-blue-300 focus:outline-none cursor-pointer"
+                onChange={(event) => handleCambiarTipoCaja(event.target.value as 'personal' | 'global')}
+                className="control-input min-w-0 flex-1 cursor-pointer font-semibold sm:min-w-[260px]"
               >
                 <option value="personal">Mi Caja Personal</option>
                 <option value="global">Caja Global (Todos)</option>
               </select>
-
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold">
-                Admin General
+              <span className="hidden whitespace-nowrap rounded-full bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 md:inline">
+                Caja activa
               </span>
             </div>
           </div>
-
-          {tipoCaja === 'global' ? (
-            <div className="mt-4 px-4 py-3 bg-amber-50 border-l-4 border-amber-400 rounded-lg text-xs text-amber-800">
-              <strong>Caja Global:</strong> Los movimientos aqui afectan a todos los usuarios.
-            </div>
-          ) : (
-            <div className="mt-4 px-4 py-3 bg-blue-50 border-l-4 border-blue-400 rounded-lg text-xs text-blue-800">
-              <strong>Caja Personal:</strong> Tus movimientos tambien se replican automaticamente en la Caja Global.
-            </div>
-          )}
-        </div>
+        </section>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <button
-          type="button"
+      <section className="grid gap-4 sm:grid-cols-2" aria-label="Acciones principales">
+        <ActionButton
+          title="Registrar Ingreso"
+          description="Anotar una entrada de dinero"
+          icon="income"
+          tone="success"
           onClick={() => navegar('/ingresos')}
-          className="group flex flex-col items-center gap-3 bg-white hover:bg-emerald-50 border-2 border-gray-100 hover:border-emerald-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1"
-        >
-          <div className="w-14 h-14 bg-emerald-100 group-hover:bg-emerald-200 rounded-2xl flex items-center justify-center text-2xl font-bold text-emerald-600 transition-colors">
-            +
-          </div>
-          <div className="text-center">
-            <p className="font-bold text-gray-800">Ingresos</p>
-            <p className="text-xs text-gray-400">Registrar entrada de dinero</p>
-          </div>
-        </button>
-
-        <button
-          type="button"
+        />
+        <ActionButton
+          title="Registrar Egreso"
+          description="Anotar una salida de dinero"
+          icon="expense"
+          tone="danger"
           onClick={() => navegar('/egresos')}
-          className="group flex flex-col items-center gap-3 bg-white hover:bg-red-50 border-2 border-gray-100 hover:border-red-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1"
-        >
-          <div className="w-14 h-14 bg-red-100 group-hover:bg-red-200 rounded-2xl flex items-center justify-center text-2xl font-bold text-red-600 transition-colors">
-            -
-          </div>
-          <div className="text-center">
-            <p className="font-bold text-gray-800">Egresos</p>
-            <p className="text-xs text-gray-400">Registrar salida de dinero</p>
-          </div>
-        </button>
-      </div>
+        />
+      </section>
 
       <SaldoCard />
 
-      <button
-        type="button"
-        onClick={() => setShowModal(true)}
-        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-blue-100 bg-white hover:bg-blue-50 text-blue-600 font-medium text-sm transition-colors"
-      >
-        <span>Ver detalle del saldo</span>
-      </button>
-
-      <Link
-        href="/historial"
-        className="flex items-center justify-between px-5 py-4 bg-white rounded-2xl border border-gray-100 hover:bg-gray-50 shadow-sm transition-colors group"
-      >
-        <div className="flex items-center gap-3 text-gray-600 group-hover:text-gray-800">
-          <span className="font-medium text-sm">Ver todos los movimientos</span>
+      <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+        <section className="surface-card p-3 sm:p-4">
+          <p className="px-2 pb-2 text-sm font-bold text-slate-500">Otras acciones</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <DashboardLink href="/historial" icon="history" label="Ver todos los movimientos" />
+            {can('alquileres:view') && <DashboardLink href="/alquileres" icon="building" label="Gestión de Alquileres" />}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowModal(true)}
+            className="mt-2 flex min-h-12 w-full items-center justify-between rounded-xl px-3 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-700"
+          >
+            <span className="flex items-center gap-3">
+              <span className="grid h-9 w-9 place-items-center rounded-lg bg-blue-50 text-blue-700"><AppIcon name="eye" className="h-4 w-4" /></span>
+              Ver detalle del saldo
+            </span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </section>
+        <div className="min-w-0 lg:w-[360px]">
+          <ArqueoToggle />
         </div>
-        <span className="text-gray-300 group-hover:text-gray-500">{'>'}</span>
-      </Link>
-
-      <ArqueoToggle />
+      </div>
 
       <MovimientosModal open={showModal} onClose={() => setShowModal(false)} />
     </div>
+  )
+}
+
+function ActionButton({ title, description, icon, tone, onClick }: {
+  title: string
+  description: string
+  icon: AppIconName
+  tone: 'success' | 'danger'
+  onClick: () => void
+}) {
+  const palette = tone === 'success'
+    ? 'border-emerald-700 bg-emerald-700 hover:bg-emerald-800'
+    : 'border-red-700 bg-red-700 hover:bg-red-800'
+  return (
+    <button type="button" onClick={onClick} className={`group flex min-h-[118px] items-center gap-4 rounded-2xl border p-5 text-left text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:p-6 ${palette}`}>
+      <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-white/15">
+        <AppIcon name={icon} className="h-7 w-7" />
+      </span>
+      <span>
+        <span className="block text-xl font-bold">{title}</span>
+        <span className="mt-1 block text-sm text-white/80">{description}</span>
+      </span>
+    </button>
+  )
+}
+
+function DashboardLink({ href, icon, label }: { href: string; icon: AppIconName; label: string }) {
+  return (
+    <Link href={href} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-700">
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-blue-50 text-blue-700">
+        <AppIcon name={icon} className="h-4 w-4" />
+      </span>
+      {label}
+    </Link>
   )
 }

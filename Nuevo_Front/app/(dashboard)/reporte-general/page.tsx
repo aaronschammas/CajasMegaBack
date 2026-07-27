@@ -109,7 +109,7 @@ export default function ReporteGeneralPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+    <div className="page-shell space-y-6">
       {/* Encabezado */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -118,7 +118,7 @@ export default function ReporteGeneralPage() {
             <span>/</span>
             <span>Reporte General</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">📈 Reporte General del Día</h1>
+          <h1 className="page-heading">Reporte General del Día</h1>
           <p className="text-gray-500 text-sm mt-1">
             Vista consolidada de todos los cajeros —{' '}
             {new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -180,7 +180,7 @@ export default function ReporteGeneralPage() {
         </div>
       ) : (
         <div>
-          <h2 className="text-lg font-bold text-gray-800 mb-3">📋 Detalle de Movimientos</h2>
+          <h2 className="mb-3 text-lg font-bold text-slate-800">Detalle de Movimientos</h2>
           <TablaMovimientos movimientos={movimientosConsolidados} onExportExcel={exportarExcel} />
         </div>
       )}

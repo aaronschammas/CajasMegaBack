@@ -1,9 +1,7 @@
 'use client'
 
-// ─── Pila de movimientos pendientes ──────────────────────────────────────────
-// Equivale a la sección "Por enviar a la DB" de ingresos.html / egresos.html.
-
 import { MovimientoPendiente } from '@/types/movimiento'
+import { AppIcon } from '@/components/ui/AppIcon'
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(n)
@@ -18,81 +16,58 @@ interface Props {
 
 export function PilaMovimientos({ pila, onEliminar, onEnviar, enviando = false, tipo }: Props) {
   const isIngreso = tipo === 'Ingreso'
+  const palette = isIngreso
+    ? { soft: 'bg-emerald-50 text-emerald-700', amount: 'text-emerald-700', button: 'bg-emerald-700 hover:bg-emerald-800' }
+    : { soft: 'bg-red-50 text-red-700', amount: 'text-red-700', button: 'bg-red-700 hover:bg-red-800' }
 
   return (
-    <div className={`rounded-2xl border-2 ${isIngreso ? 'border-emerald-200' : 'border-red-200'} bg-white shadow-sm`}>
-      {/* Header de la pila */}
-      <div className={`px-5 py-4 rounded-t-2xl flex items-center justify-between
-        ${isIngreso ? 'bg-emerald-50' : 'bg-red-50'}`}>
-        <div className="flex items-center gap-2">
-          <span className="text-xl">⏳</span>
+    <section className="surface-card overflow-hidden">
+      <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span className={`grid h-10 w-10 place-items-center rounded-xl ${palette.soft}`}>
+            <AppIcon name="send" className="h-5 w-5" />
+          </span>
           <div>
-            <h3 className="font-bold text-gray-800">Por enviar a la DB</h3>
-            <p className="text-xs text-gray-500">Movimientos pendientes de confirmación</p>
+            <h2 className="font-bold text-slate-900">Pila de movimientos</h2>
+            <p className="text-xs text-slate-500">Revisá antes de confirmar.</p>
           </div>
         </div>
-        <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white
-          ${isIngreso ? 'bg-emerald-500' : 'bg-red-500'}`}>
-          {pila.length}
-        </span>
+        <span className={`grid h-8 min-w-8 place-items-center rounded-full px-2 text-sm font-bold ${palette.soft}`}>{pila.length}</span>
       </div>
 
-      {/* Lista */}
-      <div className="p-3 min-h-[80px]">
+      <div className="min-h-[120px] p-3">
         {pila.length === 0 ? (
-          <div className="flex flex-col items-center py-6 text-gray-400">
-            <span className="text-3xl mb-1">📭</span>
-            <p className="text-sm">No hay movimientos pendientes</p>
+          <div className="flex flex-col items-center py-7 text-center text-slate-400">
+            <AppIcon name="send" className="mb-2 h-8 w-8" />
+            <p className="text-sm">No hay movimientos pendientes.</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {pila.map((mov, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-100"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-sm font-bold ${isIngreso ? 'text-emerald-600' : 'text-red-500'}`}>
-                      {fmt(mov.amount)}
-                    </span>
-                    <span className="text-xs text-gray-500">Turno {mov.shift}</span>
-                    <span className="text-xs text-gray-500">{mov.fecha}</span>
+            {pila.map((movement, index) => (
+              <div key={`${movement.fecha}-${movement.amount}-${index}`} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`text-sm font-bold ${palette.amount}`}>{fmt(movement.amount)}</span>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-500">Turno {movement.shift}</span>
+                    <span className="text-xs text-slate-400">{movement.fecha}</span>
                   </div>
-                  {mov.details && (
-                    <p className="text-xs text-gray-400 truncate mt-0.5">{mov.details}</p>
-                  )}
+                  {movement.details && <p className="mt-1 truncate text-xs text-slate-500">{movement.details}</p>}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onEliminar(index)}
-                  className="text-gray-300 hover:text-red-500 transition-colors text-xl font-bold shrink-0"
-                  title="Quitar de la pila"
-                >×</button>
+                <button type="button" onClick={() => onEliminar(index)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-red-50 hover:text-red-700" title="Quitar de la pila" aria-label="Quitar de la pila">
+                  <AppIcon name="trash" className="h-4 w-4" />
+                </button>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Botón enviar */}
       <div className="px-4 pb-4">
-        <button
-          type="button"
-          onClick={onEnviar}
-          disabled={pila.length === 0 || enviando}
-          className={`w-full py-3 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2
-            ${pila.length === 0 || enviando
-              ? 'bg-gray-300 cursor-not-allowed'
-              : isIngreso
-                ? 'bg-emerald-500 hover:bg-emerald-600 shadow-sm hover:shadow-md'
-                : 'bg-red-500 hover:bg-red-600 shadow-sm hover:shadow-md'}`}
-        >
-          {enviando
-            ? <><span className="animate-spin">⏳</span> Enviando…</>
-            : <><span>📤</span> Enviar a la DB ({pila.length})</>}
+        <button type="button" onClick={onEnviar} disabled={pila.length === 0 || enviando} className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-xl font-bold text-white shadow-sm transition-colors disabled:cursor-not-allowed disabled:bg-slate-300 ${palette.button}`}>
+          <AppIcon name="send" className="h-5 w-5" />
+          {enviando ? 'Enviando…' : `Enviar a la base de datos (${pila.length})`}
         </button>
       </div>
-    </div>
+    </section>
   )
 }

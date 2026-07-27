@@ -28,9 +28,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [])
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       <Header />
-      <main className="flex-1">
+      <main className="min-w-0 pt-16 lg:ml-[276px] lg:pt-0">
         {children}
       </main>
     </div>

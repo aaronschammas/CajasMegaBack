@@ -155,7 +155,7 @@ export default function RolesPage() {
   ]
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+    <div className="page-shell space-y-6">
       <div>
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-1">
           <Link href="/movimientos" className="hover:text-blue-500 transition-colors">← Dashboard</Link>

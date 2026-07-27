@@ -67,7 +67,7 @@ export default function HistorialPage() {
   const totalPages = Math.ceil(total / LIMIT)
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+    <div className="page-shell space-y-6">
       {/* Encabezado */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -76,7 +76,7 @@ export default function HistorialPage() {
             <span>/</span>
             <span>Historial</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">📜 Historial de Arcos</h1>
+          <h1 className="page-heading">Historial de Arqueos</h1>
           <p className="text-gray-500 text-sm mt-1">
             {total} arco{total !== 1 ? 's' : ''} registrado{total !== 1 ? 's' : ''}
           </p>

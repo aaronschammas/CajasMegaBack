@@ -18,6 +18,7 @@ import { ModalCrearPropiedad }     from '@/components/alquileres/ModalCrearPropi
 import { ModalPago }               from '@/components/alquileres/ModalPago'
 import { ActualizacionOverlay }    from '@/components/alquileres/ActualizacionOverlay'
 import { matchFiltro }             from '@/components/alquileres/helpers'
+import { AppIcon }                 from '@/components/ui/AppIcon'
 
 const ANIO_ACTUAL = new Date().getFullYear()
 const ANIOS_DISPONIBLES = Array.from({ length: 4 }, (_, i) => ANIO_ACTUAL - i)
@@ -128,7 +129,7 @@ export default function AlquileresPage() {
   ]
 
   return (
-    <div className="max-w-full px-4 py-6 space-y-5">
+    <div className="page-shell min-w-0 space-y-6">
 
       {/* ── Encabezado ────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -138,14 +139,23 @@ export default function AlquileresPage() {
             <span>/</span>
             <span>Alquileres</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">🏢 Gestión de Alquileres</h1>
+          <div className="flex items-center gap-3">
+            <span className="grid h-12 w-12 place-items-center rounded-xl bg-blue-50 text-blue-700">
+              <AppIcon name="building" className="h-6 w-6" />
+            </span>
+            <div>
+              <h1 className="page-heading">Gestión de Alquileres</h1>
+              <p className="page-subtitle">Administrá propiedades, inquilinos y pagos mensuales.</p>
+            </div>
+          </div>
         </div>
-        {(admin || can('admin:alquileres')) && (
+        {(admin || can('alquileres:manage')) && (
           <button
             onClick={() => setShowCrear(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-colors"
+            className="flex min-h-12 items-center gap-2 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-800"
           >
-            + Nueva Propiedad
+            <AppIcon name="plus" className="h-5 w-5" />
+            Nueva Propiedad
           </button>
         )}
       </div>
@@ -157,7 +167,7 @@ export default function AlquileresPage() {
       {admin && <ReportePanel />}
 
       {/* ── Leyenda / Filtros rápidos ─────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="surface-card flex min-w-0 flex-wrap items-center gap-2 p-4">
         {filtros.map((f) => (
           <button
             key={f.key}
@@ -188,9 +198,9 @@ export default function AlquileresPage() {
       </div>
 
       {/* ── Toolbar: búsqueda + año ────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-3 items-center">
+      <div className="surface-card flex min-w-0 flex-wrap items-center gap-3 p-4">
         <div className="relative flex-1 min-w-[220px]">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+          <AppIcon name="search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={busqueda}
@@ -213,9 +223,9 @@ export default function AlquileresPage() {
         <button
           onClick={() => cargar(anio)}
           title="Recargar"
-          className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors text-sm"
+          className="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50"
         >
-          🔄
+          <AppIcon name="refresh" className="h-4 w-4" />
         </button>
       </div>
 

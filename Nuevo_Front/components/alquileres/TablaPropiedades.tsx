@@ -68,8 +68,8 @@ export function TablaPropiedades({
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm bg-white">
-      <table className="w-full text-sm border-collapse">
+    <div className="surface-card max-w-full min-w-0 overflow-x-auto">
+      <table className="w-full min-w-[980px] border-collapse text-sm">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200">
             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase min-w-[160px] sticky left-0 bg-gray-50 z-10">

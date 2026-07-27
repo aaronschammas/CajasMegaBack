@@ -33,12 +33,12 @@ export function ReportePanel() {
   ]
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <section className="surface-card min-w-0 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h2 className="font-bold text-gray-800 flex items-center gap-2">
           <span>📊</span> Resumen de Ingresos por Alquileres
         </h2>
-        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm">
+        <div className="flex max-w-full overflow-x-auto rounded-xl border border-gray-200 text-sm">
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -52,7 +52,7 @@ export function ReportePanel() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
           { label: 'Total Recaudado',   value: loading ? '…' : fmt(data.total_monto), color: 'text-emerald-600' },
           { label: 'Pagos Registrados', value: loading ? '…' : String(data.cantidad), color: 'text-blue-600' },
@@ -64,6 +64,6 @@ export function ReportePanel() {
           </div>
         ))}
       </div>
-    </div>
+    </section>
   )
 }

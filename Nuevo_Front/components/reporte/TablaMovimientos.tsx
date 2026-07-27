@@ -4,6 +4,7 @@
 
 import { useState, useMemo } from 'react'
 import { Movimiento } from '@/types/movimiento'
+import { AppIcon } from '@/components/ui/AppIcon'
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(n)
@@ -43,12 +44,12 @@ export function TablaMovimientos({ movimientos, onExportPDF, onExportExcel }: Pr
   )
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="surface-card min-w-0 overflow-hidden">
       {/* Barra de herramientas */}
       <div className="flex flex-wrap items-center gap-3 p-4 border-b border-gray-100">
         {/* Búsqueda */}
         <div className="relative flex-1 min-w-[200px]">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+          <AppIcon name="search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={busqueda}
@@ -83,7 +84,7 @@ export function TablaMovimientos({ movimientos, onExportPDF, onExportExcel }: Pr
               onClick={onExportExcel}
               className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition-colors border border-emerald-200"
             >
-              📊 Excel
+              <AppIcon name="chart" className="h-4 w-4" /> Excel
             </button>
           )}
           {onExportPDF && (
@@ -91,7 +92,7 @@ export function TablaMovimientos({ movimientos, onExportPDF, onExportExcel }: Pr
               onClick={onExportPDF}
               className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors border border-red-200"
             >
-              📄 PDF
+              <AppIcon name="report" className="h-4 w-4" /> PDF
             </button>
           )}
         </div>
