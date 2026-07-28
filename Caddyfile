@@ -1,0 +1,12 @@
+tu-dominio.com {
+    encode gzip
+
+    # Next.js ya reenvía internamente /api/*, /arco/*, /logout, /health
+    # al backend Go (ver Nuevo_Front/next.config.js), así que el navegador
+    # solo necesita hablar con el contenedor frontend.
+    reverse_proxy frontend:3000
+}
+
+www.tu-dominio.com {
+    redir https://tu-dominio.com{uri} permanent
+}
