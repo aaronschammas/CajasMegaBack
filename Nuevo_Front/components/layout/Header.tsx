@@ -21,7 +21,12 @@ const OPERACIONES: NavItem[] = [
   { href: '/egresos', label: 'Registrar egreso', icon: 'expense', permissions: ['movement:create'] },
   { href: '/historial', label: 'Movimientos', icon: 'history', permissions: ['movement:read', 'movement:read:own', 'movement:read:all'] },
   { href: '/reporte', label: 'Resumen diario', icon: 'report', permissions: ['admin:reports', 'admin:reports:own'] },
-  { href: '/reporte-general', label: 'Reporte global', icon: 'chart', permissions: ['arco:view:global', 'admin:reports:all'] },
+  // OCULTO: "Reporte global" depende del concepto de "caja global física", eliminado del backend
+  // (ver arco_service.go: "Ya no existe el concepto de caja global física"). La consulta
+  // /api/saldo-ultimo-arco?is_global=true responde 500 cuando no hay cajas personales abiertas
+  // en el sistema, rompiendo la página. Se deja comentado en vez de borrar por si se repara
+  // y se reactiva más adelante.
+  // { href: '/reporte-general', label: 'Reporte global', icon: 'chart', permissions: ['arco:view:global', 'admin:reports:all'] },
   { href: '/alquileres', label: 'Alquileres', icon: 'building', permissions: ['alquileres:view'] },
 ]
 

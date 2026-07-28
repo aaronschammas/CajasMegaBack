@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
@@ -153,16 +154,24 @@ func configureConnectionPool(db *gorm.DB) error {
 	}
 
 	// Configuración recomendada para producción
-	sqlDB.SetMaxIdleConns(10)      // Conexiones idle
-	sqlDB.SetMaxOpenConns(100)     // Máximo de conexiones abiertas
-	sqlDB.SetConnMaxLifetime(3600) // 1 hora
+	sqlDB.SetMaxIdleConns(10)             // Conexiones idle
+	sqlDB.SetMaxOpenConns(100)            // Máximo de conexiones abiertas
+	sqlDB.SetConnMaxLifetime(time.Hour)   // 1 hora (antes: 3600 sin unidad = 3600 NANOSEGUNDOS, reciclaba conexiones casi al instante)
 
 	return nil
 }
 
 // runMigrations ejecuta las migraciones de la base de datos
+// Se pasan todos los modelos en una sola llamada a AutoMigrate (en vez de una
+// llamada por modelo) para reducir la cantidad de round-trips de introspección
+// de esquema (SHOW COLUMNS/SHOW INDEX/etc.) contra MySQL. El orden se mantiene
+// igual que antes para respetar las dependencias de foreign keys.
+// Además, se silencia temporalmente el logger de GORM durante la migración:
+// esto NO cambia qué se ejecuta, solo evita loguear cada sentencia interna
+// (ALTER TABLE/SHOW/etc.) que genera mucho ruido y overhead de I/O en entornos
+// no productivos. El logger original se restaura apenas termina la migración.
 func runMigrations(db *gorm.DB) error {
-	models := []interface{}{
+	migrationModels := []interface{}{
 		&models.Role{},
 		&models.User{},
 		&models.ConceptType{},
@@ -174,10 +183,13 @@ func runMigrations(db *gorm.DB) error {
 
 	log.Println("Ejecutando migraciones...")
 
-	for _, model := range models {
-		if err := db.AutoMigrate(model); err != nil {
-			return fmt.Errorf("error al migrar %T: %w", model, err)
-		}
+	originalLogger := db.Logger
+	db.Logger = originalLogger.LogMode(logger.Silent)
+	err := db.AutoMigrate(migrationModels...)
+	db.Logger = originalLogger
+
+	if err != nil {
+		return fmt.Errorf("error al migrar: %w", err)
 	}
 
 	log.Println("Migraciones completadas")

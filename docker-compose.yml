@@ -8,8 +8,11 @@ services:
       MYSQL_DATABASE: ${DB_NAME:-fuerte_caja}
       MYSQL_USER: ${DB_USER:-megacajas}
       MYSQL_PASSWORD: ${DB_PASSWORD:-megacajas_change_me}
+    # Puerto SOLO accesible desde el propio VPS (127.0.0.1), nunca expuesto a internet.
+    # Si necesitás administrar la BD remotamente, usá un tunel SSH:
+    #   ssh -L 3306:127.0.0.1:3306 usuario@tu-vps
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -22,8 +25,11 @@ services:
     image: mongo:7
     container_name: megacajas-mongo
     restart: unless-stopped
+    # Puerto SOLO accesible desde el propio VPS (127.0.0.1), nunca expuesto a internet.
+    # Tunel SSH para administrar remotamente:
+    #   ssh -L 27017:127.0.0.1:27017 usuario@tu-vps
     ports:
-      - "${MONGO_PORT:-27017}:27017"
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
     volumes:
       - mongo_data:/data/db
     healthcheck:
